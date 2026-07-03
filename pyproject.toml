@@ -1,0 +1,24 @@
+[project]
+name = "legal-ai"
+version = "0.1.0"
+requires-python = ">=3.12"
+dependencies = [
+    "pydantic>=2",
+    "langgraph",
+    "langchain",
+    "langchain-openai",
+    "langchain-text-splitters",
+    "openai",
+    "docling",
+    "qdrant-client",
+    "sqlalchemy",
+    "psycopg[binary]",
+    "supabase",
+    "langfuse>=3",
+    "python-dotenv",
+    "sentence-transformers",
+    "FlagEmbedding",
+]
+
+[tool.setuptools.packages.find]
+include = ["schemas*", "observability*", "pipeline*", "statute_kb*"]

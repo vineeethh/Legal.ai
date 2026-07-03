@@ -1,0 +1,17 @@
+.env
+.DS_Store
+__pycache__/
+*.pyc
+.venv/
+venv/
+*.egg-info/
+
+# Bare-act source PDFs — large, sourced from India Code/e-Gazette, not code.
+# The parsed section-level output (data/processed/*.jsonl) IS committed.
+data/raw/**/*.pdf
+
+# Judgment PDFs you drop in for pipeline testing — may contain real case data.
+data/judgments/*.pdf
+
+# Cached HuggingFace model weights (BGE-M3, reranker, docling models).
+.hf_cache/
