@@ -13,7 +13,13 @@ from schemas import PipelineState
 from .config import get_settings
 
 
-def save_run(state: PipelineState, *, started_at: datetime, langfuse_session_id: str | None = None) -> str:
+def save_run(
+    state: PipelineState,
+    *,
+    started_at: datetime,
+    langfuse_session_id: str | None = None,
+    human_review_decision: dict | None = None,
+) -> str:
     """Persists the completed run; returns the processing_runs.id (UUID str)."""
     if state.result is None:
         raise ValueError("Cannot persist a run with no assembled result.")
@@ -37,9 +43,9 @@ def save_run(state: PipelineState, *, started_at: datetime, langfuse_session_id:
                 """
                 INSERT INTO processing_runs
                     (document_id, structured_json, confidence_score, review_decision,
-                     llm_model, prompt_versions, retry_counts, langfuse_session_id,
-                     started_at, completed_at)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                     llm_model, prompt_versions, retry_counts, human_review_decision,
+                     langfuse_session_id, started_at, completed_at)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 RETURNING id
                 """,
                 (
@@ -50,6 +56,7 @@ def save_run(state: PipelineState, *, started_at: datetime, langfuse_session_id:
                     state.result.processing.llm_model,
                     json.dumps(state.result.processing.prompt_versions),
                     json.dumps({k.value: v for k, v in state.retry_counts.items()}),
+                    json.dumps(human_review_decision) if human_review_decision is not None else None,
                     langfuse_session_id,
                     started_at,
                     datetime.utcnow(),

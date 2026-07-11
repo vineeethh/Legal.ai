@@ -19,11 +19,19 @@ from .config import get_settings
 OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
 
 
-def get_chat_model(*, model: str | None = None, temperature: float = 0.0) -> ChatOpenAI:
+def get_chat_model(
+    *,
+    model: str | None = None,
+    temperature: float = 0.0,
+    top_p: float | None = None,
+    max_tokens: int | None = None,
+) -> ChatOpenAI:
     settings = get_settings()
     return ChatOpenAI(
         model=model or settings.llm_model,
         temperature=temperature,
+        top_p=top_p,
+        max_tokens=max_tokens,
         api_key=settings.openrouter_api_key,
         base_url=OPENROUTER_BASE_URL,
     )

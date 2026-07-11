@@ -79,6 +79,10 @@ class Settings:
     max_retries: int = field(default_factory=lambda: _get_int("MAX_RETRIES", 3))
     retry_temperatures: tuple[float, ...] = (0.0, 0.4, 0.7)
 
+    # Guardrails
+    pdf_max_size_mb: float = field(default_factory=lambda: _get_float("PDF_MAX_SIZE_MB", 50.0))
+    pdf_max_pages: int = field(default_factory=lambda: _get_int("PDF_MAX_PAGES", 600))
+
 
 _settings: Settings | None = None
 

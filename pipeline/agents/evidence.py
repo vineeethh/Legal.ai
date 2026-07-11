@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
-from schemas import EvidenceOutput
+from schemas import AgentName, EvidenceOutput
 
 from ..chunking import Chunk
+from ..prompt_spec import PromptSpec
 from .base import build_context_text, run_structured_agent
 
 SYSTEM_PROMPT = """You are the Evidence Agent for an Indian court judgment extraction system.
@@ -16,6 +17,11 @@ arguments about the evidence's weight or credibility — only what evidence was
 presented, as stated."""
 
 
-def run(chunks: list[Chunk], *, temperature: float = 0.0) -> EvidenceOutput:
+def run(chunks: list[Chunk], **llm_kwargs) -> EvidenceOutput:
     context = build_context_text(chunks)
-    return run_structured_agent(EvidenceOutput, SYSTEM_PROMPT, context, temperature=temperature)
+    return run_structured_agent(EvidenceOutput, SYSTEM_PROMPT, context, **llm_kwargs)
+
+
+PROMPT_SPECS: dict[AgentName, PromptSpec] = {
+    AgentName.EVIDENCE: PromptSpec(node="evidence", system_prompt=SYSTEM_PROMPT),
+}

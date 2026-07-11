@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
-from schemas import FactsOutput
+from schemas import AgentName, FactsOutput
 
 from ..chunking import Chunk
+from ..prompt_spec import PromptSpec
 from .base import build_context_text, run_structured_agent
 
 SYSTEM_PROMPT = """You are the Facts Agent for an Indian court judgment extraction system.
@@ -21,6 +22,11 @@ belong to other agents. Only extract facts as stated in the judgment; do not
 infer or summarize beyond what's written."""
 
 
-def run(chunks: list[Chunk], *, temperature: float = 0.0) -> FactsOutput:
+def run(chunks: list[Chunk], **llm_kwargs) -> FactsOutput:
     context = build_context_text(chunks)
-    return run_structured_agent(FactsOutput, SYSTEM_PROMPT, context, temperature=temperature)
+    return run_structured_agent(FactsOutput, SYSTEM_PROMPT, context, **llm_kwargs)
+
+
+PROMPT_SPECS: dict[AgentName, PromptSpec] = {
+    AgentName.FACTS: PromptSpec(node="facts", system_prompt=SYSTEM_PROMPT),
+}

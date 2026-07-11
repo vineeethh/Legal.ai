@@ -4,9 +4,10 @@ side's routed input or output)."""
 
 from __future__ import annotations
 
-from schemas import ArgumentsOutput
+from schemas import AgentName, ArgumentsOutput
 
 from ..chunking import Chunk
+from ..prompt_spec import PromptSpec
 from .base import build_context_text, run_structured_agent
 
 SYSTEM_PROMPT_TEMPLATE = """You are the {side_title} Agent for an Indian court judgment extraction system.
@@ -20,20 +21,39 @@ Do not extract the other party's arguments, facts, or evidence — only what thi
 excerpt attributes to the {side_lower}."""
 
 
-def _run(side: str, chunks: list[Chunk], *, temperature: float = 0.0) -> ArgumentsOutput:
-    context = build_context_text(chunks)
-    prompt = SYSTEM_PROMPT_TEMPLATE.format(
+def _render_prompt(side: str) -> str:
+    return SYSTEM_PROMPT_TEMPLATE.format(
         side_title=side.capitalize(), side_upper=side.upper(), side_lower=side
     )
-    result = run_structured_agent(ArgumentsOutput, prompt, context, temperature=temperature)
+
+
+def _run(side: str, chunks: list[Chunk], **llm_kwargs) -> ArgumentsOutput:
+    context = build_context_text(chunks)
+    result = run_structured_agent(ArgumentsOutput, _render_prompt(side), context, **llm_kwargs)
     if result.party_side != side:
         result = result.model_copy(update={"party_side": side})
     return result
 
 
-def run_petitioner(chunks: list[Chunk], *, temperature: float = 0.0) -> ArgumentsOutput:
-    return _run("petitioner", chunks, temperature=temperature)
+def run_petitioner(chunks: list[Chunk], **llm_kwargs) -> ArgumentsOutput:
+    return _run("petitioner", chunks, **llm_kwargs)
 
 
-def run_respondent(chunks: list[Chunk], *, temperature: float = 0.0) -> ArgumentsOutput:
-    return _run("respondent", chunks, temperature=temperature)
+def run_respondent(chunks: list[Chunk], **llm_kwargs) -> ArgumentsOutput:
+    return _run("respondent", chunks, **llm_kwargs)
+
+
+PROMPT_SPECS: dict[AgentName, PromptSpec] = {
+    AgentName.PETITIONER: PromptSpec(
+        node="petitioner",
+        system_prompt=_render_prompt("petitioner"),
+        is_template=True,
+        template_params={"side": "petitioner"},
+    ),
+    AgentName.RESPONDENT: PromptSpec(
+        node="respondent",
+        system_prompt=_render_prompt("respondent"),
+        is_template=True,
+        template_params={"side": "respondent"},
+    ),
+}

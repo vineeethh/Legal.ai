@@ -43,8 +43,12 @@ def run_structured_agent(
     *,
     temperature: float = 0.0,
     model: str | None = None,
+    top_p: float | None = None,
+    max_tokens: int | None = None,
 ) -> T:
-    chat = get_chat_model(model=model, temperature=temperature).with_structured_output(schema)
+    chat = get_chat_model(
+        model=model, temperature=temperature, top_p=top_p, max_tokens=max_tokens
+    ).with_structured_output(schema)
     messages = [
         ("system", f"{system_prompt}\n\n{ISOLATION_REMINDER}"),
         ("human", context_text or "(no routed excerpts for this document)"),

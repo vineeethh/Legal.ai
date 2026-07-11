@@ -7,9 +7,10 @@ statute_kb/lookup.py, which is the only place RAG touches this pipeline.
 
 from __future__ import annotations
 
-from schemas import StatuteOutput
+from schemas import AgentName, StatuteOutput
 
 from ..chunking import Chunk
+from ..prompt_spec import PromptSpec
 from .base import build_context_text, run_structured_agent
 
 SYSTEM_PROMPT = """You are the Statute Agent for an Indian court judgment extraction system.
@@ -24,6 +25,11 @@ excerpt alone — do not guess an act. Do not attempt to verify whether the cita
 is correct; that happens in a separate step. Do not extract facts or arguments here."""
 
 
-def run(chunks: list[Chunk], *, temperature: float = 0.0) -> StatuteOutput:
+def run(chunks: list[Chunk], **llm_kwargs) -> StatuteOutput:
     context = build_context_text(chunks)
-    return run_structured_agent(StatuteOutput, SYSTEM_PROMPT, context, temperature=temperature)
+    return run_structured_agent(StatuteOutput, SYSTEM_PROMPT, context, **llm_kwargs)
+
+
+PROMPT_SPECS: dict[AgentName, PromptSpec] = {
+    AgentName.STATUTE: PromptSpec(node="statute", system_prompt=SYSTEM_PROMPT),
+}

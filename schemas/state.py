@@ -72,3 +72,14 @@ class PipelineState(BaseModel):
 
     # Free-form trace hooks (Langfuse span ids, timings) — not used for logic.
     trace: dict[str, Any] = Field(default_factory=dict)
+
+    # Prompt-injection guardrail: chunk_id -> matched pattern names, populated
+    # once at parse time (pipeline/injection_screen.py). Used for logic — see
+    # assemble_node in pipeline/graph.py, which floors the review decision at
+    # needs_review when this is non-empty.
+    injection_matches: dict[str, list[str]] = Field(default_factory=dict)
+
+    # PDF structural safety guardrail (pipeline/pdf_safety.py), populated by
+    # the pdf_safety_gate node. Non-empty routes the graph straight to the
+    # `rejected` terminal node — run_document() raises PdfSafetyError from it.
+    pdf_safety_reasons: list[str] = Field(default_factory=list)

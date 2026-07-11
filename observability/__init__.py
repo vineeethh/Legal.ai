@@ -11,6 +11,7 @@ from .langfuse_client import (
     get_langfuse_client,
     get_langgraph_handler,
     get_openrouter_client,
+    traced_run_config,
     verify_langfuse_connection,
 )
 
@@ -18,5 +19,6 @@ __all__ = [
     "get_langfuse_client",
     "get_langgraph_handler",
     "get_openrouter_client",
+    "traced_run_config",
     "verify_langfuse_connection",
 ]

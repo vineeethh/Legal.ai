@@ -86,6 +86,7 @@ CREATE TABLE IF NOT EXISTS processing_runs (
     llm_model           TEXT NOT NULL,
     prompt_versions     JSONB NOT NULL DEFAULT '{}',
     retry_counts        JSONB NOT NULL DEFAULT '{}',
+    human_review_decision JSONB,           -- reviewer's resume payload, NULL unless interrupt() fired
     langfuse_session_id TEXT,
     started_at          TIMESTAMPTZ NOT NULL,
     completed_at        TIMESTAMPTZ,

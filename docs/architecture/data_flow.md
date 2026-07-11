@@ -82,6 +82,115 @@ flowchart TD
   - One Langfuse **session per document run** (`traced_run_config` in [observability/langfuse_client.py](../../observability/langfuse_client.py)) so all 6 agents + validator + retries land under a single trace.
   - LangGraph nodes are traced via `langfuse.langchain.CallbackHandler`; any agent that calls OpenRouter directly (outside a LangChain node) uses the traced `get_openrouter_client()` wrapper instead — both paths report to the same trace via the shared session id.
 
+## Compiled LangGraph structure (generated — do not hand-edit)
+
+Regenerate with `python -m pipeline.architecture_doc` after any change to `pipeline/graph.py`,
+an agent's prompt, or `pipeline/llm_config.py`. This is the actual compiled `StateGraph`, not
+a hand-drawn approximation — the diagram above documents the wider pipeline (parse/chunk/embed/
+route) that runs *before* the graph is built; this one documents only the graph itself.
+
+Prefer an image over reading Mermaid source? Open [graph.png](./graph.png) — regenerated
+alongside this file, same command.
+
+<!-- GRAPH:START -->
+```mermaid
+---
+config:
+  flowchart:
+    curve: linear
+---
+graph TD;
+	__start__([<p>__start__</p>]):::first
+	pdf_safety_gate(pdf_safety_gate)
+	parse_and_chunk(parse_and_chunk)
+	injection_screen(injection_screen)
+	rejected(rejected)
+	fan_in_gate(fan_in_gate)
+	metadata(metadata)
+	metadata_confidence(metadata_confidence)
+	facts(facts)
+	facts_confidence(facts_confidence)
+	statute(statute)
+	statute_confidence(statute_confidence)
+	petitioner(petitioner)
+	petitioner_confidence(petitioner_confidence)
+	respondent(respondent)
+	respondent_confidence(respondent_confidence)
+	evidence(evidence)
+	evidence_confidence(evidence_confidence)
+	assemble(assemble)
+	confidence(confidence)
+	human_review(human_review)
+	__end__([<p>__end__</p>]):::last
+	__start__ --> pdf_safety_gate;
+	assemble --> confidence;
+	confidence -. &nbsp;save&nbsp; .-> __end__;
+	confidence -. &nbsp;review&nbsp; .-> human_review;
+	evidence --> evidence_confidence;
+	evidence_confidence -. &nbsp;retry&nbsp; .-> evidence;
+	evidence_confidence -. &nbsp;done&nbsp; .-> fan_in_gate;
+	facts --> facts_confidence;
+	facts_confidence -. &nbsp;retry&nbsp; .-> facts;
+	facts_confidence -. &nbsp;done&nbsp; .-> fan_in_gate;
+	fan_in_gate -. &nbsp;wait&nbsp; .-> __end__;
+	fan_in_gate -. &nbsp;ready&nbsp; .-> assemble;
+	injection_screen --> evidence;
+	injection_screen --> facts;
+	injection_screen --> metadata;
+	injection_screen --> petitioner;
+	injection_screen --> respondent;
+	injection_screen --> statute;
+	metadata --> metadata_confidence;
+	metadata_confidence -. &nbsp;done&nbsp; .-> fan_in_gate;
+	metadata_confidence -. &nbsp;retry&nbsp; .-> metadata;
+	parse_and_chunk --> injection_screen;
+	pdf_safety_gate -. &nbsp;safe&nbsp; .-> parse_and_chunk;
+	pdf_safety_gate -. &nbsp;unsafe&nbsp; .-> rejected;
+	petitioner --> petitioner_confidence;
+	petitioner_confidence -. &nbsp;done&nbsp; .-> fan_in_gate;
+	petitioner_confidence -. &nbsp;retry&nbsp; .-> petitioner;
+	respondent --> respondent_confidence;
+	respondent_confidence -. &nbsp;done&nbsp; .-> fan_in_gate;
+	respondent_confidence -. &nbsp;retry&nbsp; .-> respondent;
+	statute --> statute_confidence;
+	statute_confidence -. &nbsp;done&nbsp; .-> fan_in_gate;
+	statute_confidence -. &nbsp;retry&nbsp; .-> statute;
+	human_review --> __end__;
+	rejected --> __end__;
+	classDef default fill:#f2f0ff,line-height:1.2
+	classDef first fill-opacity:0
+	classDef last fill:#bfb6fc
+
+```
+<!-- GRAPH:END -->
+
+### Node reference
+
+<!-- NODES:START -->
+| Node | Prompt | Model | Temperature ladder | top_p | max_tokens | Confidence threshold | Writes state field |
+|---|---|---|---|---|---|---|---|
+| `metadata` | You are the Metadata Agent for an Indian court judgment extraction system. | settings.llm_model | [0.0, 0.4, 0.7] | None | None | — | `metadata` |
+| `metadata_confidence` | _(no LLM call — scores AgentValidationResult.pass_rate; loops back to `metadata` on retry, else -> assemble)_ | — | — | — | — | 1.0 | `validations`, `retry_counts`, `retry_decision` |
+| `facts` | You are the Facts Agent for an Indian court judgment extraction system. | settings.llm_model | [0.0, 0.4, 0.7] | None | None | — | `facts` |
+| `facts_confidence` | _(no LLM call — scores AgentValidationResult.pass_rate; loops back to `facts` on retry, else -> assemble)_ | — | — | — | — | 1.0 | `validations`, `retry_counts`, `retry_decision` |
+| `statute` | You are the Statute Agent for an Indian court judgment extraction system. | settings.llm_model | [0.0, 0.4, 0.7] | None | None | — | `statutes` |
+| `statute_confidence` | _(no LLM call — scores AgentValidationResult.pass_rate; loops back to `statute` on retry, else -> assemble)_ | — | — | — | — | 1.0 | `validations`, `retry_counts`, `retry_decision` |
+| `petitioner` | You are the Petitioner Agent for an Indian court judgment extraction system. _(template, params={'side': 'petitioner'})_ | settings.llm_model | [0.0, 0.4, 0.7] | None | None | — | `petitioner` |
+| `petitioner_confidence` | _(no LLM call — scores AgentValidationResult.pass_rate; loops back to `petitioner` on retry, else -> assemble)_ | — | — | — | — | 1.0 | `validations`, `retry_counts`, `retry_decision` |
+| `respondent` | You are the Respondent Agent for an Indian court judgment extraction system. _(template, params={'side': 'respondent'})_ | settings.llm_model | [0.0, 0.4, 0.7] | None | None | — | `respondent` |
+| `respondent_confidence` | _(no LLM call — scores AgentValidationResult.pass_rate; loops back to `respondent` on retry, else -> assemble)_ | — | — | — | — | 1.0 | `validations`, `retry_counts`, `retry_decision` |
+| `evidence` | You are the Evidence Agent for an Indian court judgment extraction system. | settings.llm_model | [0.0, 0.4, 0.7] | None | None | — | `evidence` |
+| `evidence_confidence` | _(no LLM call — scores AgentValidationResult.pass_rate; loops back to `evidence` on retry, else -> assemble)_ | — | — | — | — | 1.0 | `validations`, `retry_counts`, `retry_decision` |
+| `fan_in_gate` | _(no LLM call — manual barrier; only proceeds to assemble once agents_done covers all 6 agents)_ | — | — | — | — | — | — |
+| `pdf_safety_gate` | _(no LLM call — structural PDF scan, pipeline/pdf_safety.py)_ | — | — | — | — | — | `pdf_safety_reasons` |
+| `parse_and_chunk` | _(no LLM call — Docling parse + chunk, only reached if pdf_safety_gate passes)_ | — | — | — | — | — | `chunk_count`, `ocr_used`, `agent_inputs` |
+| `injection_screen` | _(no LLM call — pattern scan, pipeline/injection_screen.py)_ | — | — | — | — | — | `injection_matches` |
+| `rejected` | _(no LLM call — terminal node for an unsafe PDF)_ | — | — | — | — | — | — |
+| `assemble` | _(no LLM call — statute verification only, pipeline.agents.response assembly happens in \`confidence\`)_ | — | — | — | — | — | `statutes` |
+| `confidence` | _(no LLM call — document-level ConfidenceBreakdown + builds the final result)_ | — | — | — | — | — | `confidence`, `result` |
+| `human_review` | _(no LLM call — interrupt() pauses for a human decision)_ | — | — | — | — | — | `result` |
+<!-- NODES:END -->
+
 ## Known, accepted limitation
 
 KB is **IPC + Constitution only**. Post-2024 judgments citing **BNS/BNSS/BSA** will not verify. The KB schema stores `act` + `act_version` + `effective_dates` so BNS can be added later as configuration, not a rewrite, and so a section number is always matched against the *correct* act rather than blindly.

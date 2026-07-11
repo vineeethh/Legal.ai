@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
-from schemas import MetadataOutput
+from schemas import AgentName, MetadataOutput
 
 from ..chunking import Chunk
+from ..prompt_spec import PromptSpec
 from .base import build_context_text, run_structured_agent
 
 SYSTEM_PROMPT = """You are the Metadata Agent for an Indian court judgment extraction system.
@@ -22,6 +23,11 @@ Extract only case-identifying header information:
 Do not extract facts, arguments, or statute citations here — those belong to other agents."""
 
 
-def run(chunks: list[Chunk], *, temperature: float = 0.0) -> MetadataOutput:
+def run(chunks: list[Chunk], **llm_kwargs) -> MetadataOutput:
     context = build_context_text(chunks)
-    return run_structured_agent(MetadataOutput, SYSTEM_PROMPT, context, temperature=temperature)
+    return run_structured_agent(MetadataOutput, SYSTEM_PROMPT, context, **llm_kwargs)
+
+
+PROMPT_SPECS: dict[AgentName, PromptSpec] = {
+    AgentName.METADATA: PromptSpec(node="metadata", system_prompt=SYSTEM_PROMPT),
+}
