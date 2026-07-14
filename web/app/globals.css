@@ -1,0 +1,251 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* ---------------------------------------------------------------------------
+   Legal.ai — "ink & paper".
+   Structure comes from alignment, hairlines and type — not boxes. One navy
+   accent, reserved for interaction. Semantic tones stay muted: this is a
+   legal instrument, not a dashboard toy.
+--------------------------------------------------------------------------- */
+
+:root {
+  --background: #fafaf7;
+  --surface: #ffffff;
+  --surface-2: #f2f1ec;
+  --surface-3: #e9e7e0;
+  --foreground: #1b1a15;
+  --muted: #666257;
+  --faint: #a29d90;
+  --border: rgba(27, 26, 21, 0.09);
+  --border-strong: rgba(27, 26, 21, 0.17);
+  --accent: #34508f;
+  --accent-strong: #263d73;
+  --accent-soft: rgba(52, 80, 143, 0.08);
+  --success: #22754f;
+  --success-soft: rgba(34, 117, 79, 0.09);
+  --warn: #93651c;
+  --warn-soft: rgba(147, 101, 28, 0.1);
+  --danger: #a03a40;
+  --danger-soft: rgba(160, 58, 64, 0.09);
+  --mark: rgba(52, 80, 143, 0.2);
+  --shadow-card: 0 1px 2px rgba(27, 26, 21, 0.04);
+  --shadow-lift: 0 1px 2px rgba(27, 26, 21, 0.05), 0 8px 24px -8px rgba(27, 26, 21, 0.12);
+}
+
+.dark {
+  --background: #141412;
+  --surface: #1b1b18;
+  --surface-2: #22221e;
+  --surface-3: #2b2b26;
+  --foreground: #ebe9e1;
+  --muted: #9d988b;
+  --faint: #6b675c;
+  --border: rgba(235, 233, 225, 0.09);
+  --border-strong: rgba(235, 233, 225, 0.18);
+  --accent: #93abe6;
+  --accent-strong: #adc0ef;
+  --accent-soft: rgba(147, 171, 230, 0.11);
+  --success: #5cb888;
+  --success-soft: rgba(92, 184, 136, 0.11);
+  --warn: #cd9f4f;
+  --warn-soft: rgba(205, 159, 79, 0.12);
+  --danger: #d0757b;
+  --danger-soft: rgba(208, 117, 123, 0.11);
+  --mark: rgba(147, 171, 230, 0.26);
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.35);
+  --shadow-lift: 0 1px 2px rgba(0, 0, 0, 0.4), 0 10px 28px -8px rgba(0, 0, 0, 0.5);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-surface-3: var(--surface-3);
+  --color-foreground: var(--foreground);
+  --color-muted: var(--muted);
+  --color-faint: var(--faint);
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-accent: var(--accent);
+  --color-accent-strong: var(--accent-strong);
+  --color-accent-soft: var(--accent-soft);
+  --color-success: var(--success);
+  --color-success-soft: var(--success-soft);
+  --color-warn: var(--warn);
+  --color-warn-soft: var(--warn-soft);
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+  --font-sans: var(--font-geist), ui-sans-serif, system-ui, sans-serif;
+  --font-serif: var(--font-fraunces), ui-serif, Georgia, serif;
+  --shadow-card: var(--shadow-card);
+  --shadow-lift: var(--shadow-lift);
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-geist), ui-sans-serif, system-ui, sans-serif;
+  font-size: 14px;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* Fraunces display voice: soft optical serif, tight tracking. */
+.font-serif {
+  font-family: var(--font-fraunces), ui-serif, Georgia, serif;
+  font-variation-settings: "SOFT" 40;
+  letter-spacing: -0.015em;
+}
+
+/* Quiet atmosphere: one barely-there wash from the top. Not a gradient hero —
+   just enough depth that the page has a ceiling. */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: -1;
+  background: radial-gradient(70% 32% at 50% 0%, var(--accent-soft), transparent 72%);
+  opacity: 0.55;
+}
+
+/* Masthead double rule — the ledger/newspaper signature. */
+.rule-double {
+  border-top: 2px solid var(--foreground);
+  position: relative;
+}
+.rule-double::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 2px;
+  border-top: 1px solid var(--border-strong);
+}
+
+::selection {
+  background: var(--mark);
+}
+
+.tnum {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Micro-label: the small structural voice used for section eyebrows. */
+.eyebrow {
+  font-size: 11px;
+  font-weight: 550;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--faint);
+}
+
+/* --------------------------- motion discipline --------------------------- */
+/* Durations: 120ms state / 200ms move / 320ms enter. Enter eases out; exit
+   eases in. Nothing decorative, nothing over 400ms. */
+
+.t-state {
+  transition-duration: 120ms;
+  transition-timing-function: cubic-bezier(0.2, 0, 0, 1);
+}
+.t-move {
+  transition-duration: 200ms;
+  transition-timing-function: cubic-bezier(0.2, 0, 0, 1);
+}
+
+/* Live indicator: one calm concentric ring, not a blink. */
+.live-dot {
+  position: relative;
+}
+.live-dot::after {
+  content: "";
+  position: absolute;
+  inset: -3px;
+  border-radius: 9999px;
+  border: 1.5px solid currentColor;
+  opacity: 0;
+  animation: ring 2.2s cubic-bezier(0.2, 0, 0, 1) infinite;
+}
+@keyframes ring {
+  0% {
+    transform: scale(0.6);
+    opacity: 0.6;
+  }
+  70%,
+  100% {
+    transform: scale(1.5);
+    opacity: 0;
+  }
+}
+
+/* Provenance highlight: settle once, don't keep flashing. */
+@keyframes mark-settle {
+  0% {
+    box-shadow: 0 0 0 6px var(--mark);
+  }
+  100% {
+    box-shadow: 0 0 0 2px var(--mark);
+  }
+}
+
+.react-pdf__Page mark,
+.pdf-highlight mark {
+  background: var(--mark);
+  color: transparent;
+  border-radius: 2px;
+  animation: mark-settle 700ms cubic-bezier(0.2, 0, 0, 1) both;
+}
+
+.react-pdf__Page {
+  border-radius: 6px;
+  overflow: hidden;
+  box-shadow: var(--shadow-card);
+  border: 1px solid var(--border);
+}
+
+.pane-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-strong) transparent;
+}
+
+.pulse-soft {
+  animation: pulse-soft 1.8s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+@keyframes pulse-soft {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+/* Ledger meter (confidence): ruled scale with decision gates. */
+.meter-ticks {
+  background-image: repeating-linear-gradient(
+    to right,
+    var(--border-strong) 0,
+    var(--border-strong) 1px,
+    transparent 1px,
+    transparent 5%
+  );
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+  html {
+    scroll-behavior: auto;
+  }
+}

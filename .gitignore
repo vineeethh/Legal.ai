@@ -1,0 +1,39 @@
+# Secrets — never commit
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Bare-act source PDFs — large, sourced from India Code/e-Gazette, not code.
+# The parsed section-level output (data/processed/*.jsonl) IS committed.
+data/raw/**/*.pdf
+
+# Judgment PDFs dropped in for pipeline testing — may contain real case data,
+# and uploads via the web UI land here too (named by document id).
+data/judgments/*.pdf
+data/judgments/*.PDF
+
+# Cached HuggingFace model weights (BGE-M3, reranker, docling models).
+.hf_cache/
+
+# Local run output
+result.json
+*.log
+
+# Editor/agent tooling directories — not part of the project.
+.vscode/
+.idea/

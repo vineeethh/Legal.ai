@@ -1,0 +1,77 @@
+"""Shared machinery for the 6 extraction agents.
+
+Isolation is enforced structurally: an agent's only input is the context text
+built from its own routed chunks (see PipelineState.agent_inputs) — nothing
+here gives a node access to another agent's output.
+"""
+
+from __future__ import annotations
+
+from typing import TypeVar
+
+from pydantic import BaseModel
+
+from ..chunking import Chunk
+from ..llm import get_chat_model
+
+T = TypeVar("T", bound=BaseModel)
+
+
+class StructuredOutputError(RuntimeError):
+    """The model returned no parseable instance of the requested schema (e.g. it
+    made no tool call, or an unparseable one). Raised instead of a bare assert so
+    the graph's per-agent error isolation (pipeline/graph.py) can catch it and
+    emit an empty output rather than aborting the whole document run."""
+
+
+ISOLATION_REMINDER = (
+    "You only have access to the excerpt below — you do not see the full judgment or "
+    "any other agent's output. Each excerpt is preceded by a marker "
+    "[[page:P chunk:ID]] recording where it came from.\n\n"
+    "Rules:\n"
+    "- Every extracted value must carry a verbatim quote copied exactly from the excerpt "
+    "it came from, plus the page number and chunk id from that excerpt's marker.\n"
+    "- If you cannot confidently find a field in this excerpt, leave it as None/empty — "
+    "never guess or infer from outside knowledge.\n"
+    "- Do not paraphrase the quote; it must be an exact substring of the excerpt text."
+)
+
+
+def build_context_text(chunks: list[Chunk]) -> str:
+    parts = []
+    for c in chunks:
+        parts.append(f"[[page:{c.page} chunk:{c.chunk_id}]]\n{c.text}")
+    return "\n\n---\n\n".join(parts)
+
+
+def run_structured_agent(
+    schema: type[T],
+    system_prompt: str,
+    context_text: str,
+    *,
+    temperature: float = 0.0,
+    model: str | None = None,
+    top_p: float | None = None,
+    max_tokens: int | None = None,
+) -> T:
+    # method="function_calling": return the structured object via a tool call
+    # rather than OpenAI's json_schema response_format. Tool-call arguments are
+    # parsed as JSON directly, so models that wrap json_schema output in a
+    # ```json markdown fence (common across the OpenRouter model zoo) still
+    # parse cleanly. Broadly compatible across major model providers.
+    chat = get_chat_model(
+        model=model, temperature=temperature, top_p=top_p, max_tokens=max_tokens
+    ).with_structured_output(schema, method="function_calling")
+    messages = [
+        ("system", f"{system_prompt}\n\n{ISOLATION_REMINDER}"),
+        ("human", context_text or "(no routed excerpts for this document)"),
+    ]
+    result = chat.invoke(messages)
+    if not isinstance(result, schema):
+        # with_structured_output returns None when the model makes no valid tool
+        # call. Surface it as a typed error the graph node can isolate.
+        raise StructuredOutputError(
+            f"{schema.__name__}: model returned no valid structured output "
+            f"(got {type(result).__name__})."
+        )
+    return result

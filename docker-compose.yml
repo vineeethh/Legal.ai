@@ -1,0 +1,71 @@
+# Postgres is hosted on Supabase (see .env) — not run locally.
+#
+# docling-parse (a docling dependency) is a C++ extension with no prebuilt
+# wheel for this machine's Python/arch combo, forcing a slow from-source
+# CMake build locally. The Docker image is linux/amd64 with manylinux wheels
+# available, so `docker compose run app ...` is the supported way to run the
+# pipeline/ingestion on this machine.
+services:
+  app:
+    build: .
+    env_file: .env
+    environment:
+      # Persist HuggingFace model weights (BGE-M3, reranker, docling models)
+      # across `--rm` container runs by keeping the cache on the bind-mounted
+      # volume instead of the throwaway container filesystem.
+      - HF_HOME=/app/.hf_cache
+    volumes:
+      - .:/app
+    depends_on:
+      - qdrant
+    tty: true
+    stdin_open: true
+
+  # Local web API (FastAPI). Same image as `app`; bound to localhost only —
+  # this is a single-user tool with no auth layer by design.
+  api:
+    build: .
+    env_file: .env
+    environment:
+      - HF_HOME=/app/.hf_cache
+    command: uvicorn api.main:app --host 0.0.0.0 --port 8000
+    ports:
+      - "127.0.0.1:8000:8000"
+    volumes:
+      - .:/app
+    depends_on:
+      - qdrant
+    restart: unless-stopped
+
+  # Local web UI (Next.js dev server). node_modules lives in a named volume so
+  # `npm install` survives restarts and never fights the Windows bind mount.
+  web:
+    image: node:22-alpine
+    working_dir: /web
+    command: sh -c "npm install && npm run dev"
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost:8000
+      # File events don't propagate across a Windows bind mount into the Linux
+      # container — poll instead, or the dev server never sees host edits.
+      - WATCHPACK_POLLING=true
+    ports:
+      - "127.0.0.1:3000:3000"
+    volumes:
+      - ./web:/web
+      - web_node_modules:/web/node_modules
+    depends_on:
+      - api
+    restart: unless-stopped
+
+  qdrant:
+    image: qdrant/qdrant:latest
+    restart: unless-stopped
+    ports:
+      - "6333:6333"
+      - "6334:6334"
+    volumes:
+      - qdrant_data:/qdrant/storage
+
+volumes:
+  qdrant_data:
+  web_node_modules:

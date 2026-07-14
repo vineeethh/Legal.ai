@@ -1,0 +1,50 @@
+[project]
+name = "legal-ai"
+version = "0.1.0"
+requires-python = ">=3.12"
+# Pinned to the exact versions the image was built and validated against, so a
+# rebuild can't silently pull a breaking major (e.g. transformers 5.x removed
+# tokenizer.prepare_for_model, which is why the reranker uses sentence-
+# transformers' CrossEncoder). torch/torchvision are pinned in the Dockerfile
+# (installed from the PyTorch CPU index, not PyPI).
+dependencies = [
+    "pydantic==2.13.4",
+    "langgraph==1.2.9",
+    "langgraph-checkpoint-postgres==3.1.0",
+    "langchain==1.3.13",
+    "langchain-openai==1.3.5",
+    "langchain-text-splitters==1.1.2",
+    "openai==2.45.0",
+    "docling==2.112.0",
+    "pikepdf==10.10.0",
+    "qdrant-client==1.18.0",
+    "sqlalchemy==2.0.51",
+    "psycopg[binary]==3.3.4",
+    "supabase==2.31.0",
+    "langfuse==4.14.0",
+    "python-dotenv==1.2.2",
+    "sentence-transformers==5.6.0",
+    "FlagEmbedding==1.4.0",
+    # Transitive but critical — pin so a surprise major bump can't break the runtime.
+    "transformers==5.13.1",
+    "tokenizers==0.22.2",
+    "numpy==2.4.4",
+    # Local web API (api/) — pinned to the versions the image resolved and
+    # was verified against.
+    "fastapi==0.139.0",
+    "uvicorn[standard]==0.51.0",
+    "python-multipart==0.0.32",
+]
+
+[project.optional-dependencies]
+# Lightweight test deps — do NOT pull the heavy runtime stack (torch/docling/
+# FlagEmbedding). The pure logic (validation reconciliation, confidence, etc.)
+# is written to import with only pydantic + schemas, so `pytest` runs anywhere.
+dev = ["pytest>=8"]
+
+[tool.setuptools.packages.find]
+include = ["schemas*", "observability*", "pipeline*", "statute_kb*", "api*"]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
