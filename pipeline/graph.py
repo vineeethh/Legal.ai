@@ -25,9 +25,11 @@ Matches docs/architecture/data_flow.md's Orchestration section:
 
 from __future__ import annotations
 
+import logging
 import operator
-from datetime import datetime
-from typing import Annotated, Callable
+import threading
+from dataclasses import dataclass
+from typing import Annotated, Callable, Literal
 
 from langgraph.checkpoint.postgres import PostgresSaver
 from langgraph.graph import END, StateGraph
@@ -36,11 +38,20 @@ from pydantic import Field
 
 from schemas import (
     AgentName,
+    AgentValidationResult,
+    ArgumentsOutput,
+    EvidenceOutput,
+    FactsOutput,
+    MetadataOutput,
     PipelineState,
     ProcessingMetadata,
     ReviewDecision,
+    StatuteOutput,
     StructuredJudgment,
+    ValidationStatus,
 )
+
+logger = logging.getLogger(__name__)
 
 from .agents import arguments as arguments_agent
 from .agents import evidence as evidence_agent
@@ -57,6 +68,7 @@ from .fallback import apply_fallback
 from .injection_screen import scan_chunks
 from .llm_config import DEFAULT_NODE_LLM_CONFIG
 from .pdf_safety import PdfSafetyError, scan_pdf_safety
+from .prompts import prompt_versions
 from .router import apply_retrieval_fallback, route_document
 from .statute_verification import verify_statute_output
 from .validation import validate_agent_output
@@ -85,21 +97,47 @@ _AGENT_STATE_FIELD = {
 }
 
 
+def _empty_output_for(agent: AgentName):
+    """A valid but empty output for an agent whose LLM call failed (e.g. the
+    model produced no parseable structured output, or a persistent rate limit
+    survived the client's retries). 'Found nothing' rather than a crash — the
+    empty output scores low in validation/confidence, so a degraded agent
+    surfaces as low confidence / human review instead of aborting the whole
+    document. Every one of these is constructible with no fields present
+    (ArgumentsOutput needs only its side label)."""
+    if agent == AgentName.PETITIONER:
+        return ArgumentsOutput(party_side="petitioner")
+    if agent == AgentName.RESPONDENT:
+        return ArgumentsOutput(party_side="respondent")
+    return {
+        AgentName.METADATA: MetadataOutput,
+        AgentName.FACTS: FactsOutput,
+        AgentName.STATUTE: StatuteOutput,
+        AgentName.EVIDENCE: EvidenceOutput,
+    }[agent]()
+
+
 class GraphState(PipelineState):
     """PipelineState with merge reducers on the dict fields multiple agent
     nodes write to concurrently. Plain last-write-wins (the default for a
     field with no reducer) would drop updates when two nodes finish in the
     same Pregel step — see schemas/state.py's reducer note."""
 
-    validations: Annotated[dict, operator.or_] = Field(default_factory=dict)
-    retry_counts: Annotated[dict, operator.or_] = Field(default_factory=dict)
+    # Typed (not bare `dict`) so GraphState.model_validate() coerces the string
+    # keys / plain-dict values a PostgresSaver checkpoint round-trip produces
+    # back into AgentName / AgentValidationResult — otherwise consumers doing
+    # `agent.value` (persistence, human_review) crash on a resumed run. The
+    # operator.or_ reducer still applies (it's separate Annotated metadata).
+    validations: Annotated[dict[AgentName, AgentValidationResult], operator.or_] = Field(default_factory=dict)
+    retry_counts: Annotated[dict[AgentName, int], operator.or_] = Field(default_factory=dict)
+    agent_errors: Annotated[dict[AgentName, str], operator.or_] = Field(default_factory=dict)
     # "retry" | "done" per agent, written by that agent's confidence node and
     # read by the conditional edge routing back to the agent node (a cycle)
     # or forward to assemble. Kept as an explicit signal rather than having
     # the routing function re-derive it from retry_counts — retry_counts
     # alone is ambiguous (the post-increment value looks the same whether a
     # retry was just scheduled or retries were just exhausted).
-    retry_decision: Annotated[dict, operator.or_] = Field(default_factory=dict)
+    retry_decision: Annotated[dict[AgentName, str], operator.or_] = Field(default_factory=dict)
     # Written by each agent's confidence node only once that agent is truly
     # finished (pass, or retries exhausted) — never on a "retry" outcome.
     # `fan_in_gate` is the only thing that reads this: LangGraph does NOT wait
@@ -111,7 +149,7 @@ class GraphState(PipelineState):
     # `fan_in_gate` is the explicit manual barrier that replaces the implicit
     # one the original single-node-per-agent design got "for free" only
     # because every agent finished within a single Pregel superstep.
-    agents_done: Annotated[dict, operator.or_] = Field(default_factory=dict)
+    agents_done: Annotated[dict[AgentName, bool], operator.or_] = Field(default_factory=dict)
 
 
 class RunContext:
@@ -128,6 +166,10 @@ class RunContext:
         self.chunks: list[Chunk] = []
         self.chunks_by_id: dict[str, Chunk] = {}
         self._index: JudgmentChunkIndex | None = None
+        # The index is built lazily on first retrieval-fallback, which can happen
+        # from several agent nodes running concurrently — guard the build so the
+        # per-document chunk embeddings aren't computed more than once.
+        self._index_lock = threading.Lock()
 
     def set_chunks(self, chunks: list[Chunk]) -> None:
         self.chunks = chunks
@@ -137,7 +179,9 @@ class RunContext:
     @property
     def index(self) -> JudgmentChunkIndex:
         if self._index is None:
-            self._index = JudgmentChunkIndex(self.chunks)
+            with self._index_lock:
+                if self._index is None:
+                    self._index = JudgmentChunkIndex(self.chunks)
         return self._index
 
 
@@ -154,6 +198,7 @@ def build_graph(ctx: RunContext) -> StateGraph:
         ctx.set_chunks(chunks)
         return {
             "chunk_count": len(chunks),
+            "page_count": parsed.page_count,
             "ocr_used": parsed.ocr_used,
             "agent_inputs": route_document(parsed, chunks),
         }
@@ -194,13 +239,45 @@ def build_graph(ctx: RunContext) -> StateGraph:
             runner = _AGENT_RUNNERS[agent]
             ladder = node_cfg.temperature_ladder
             temperature = ladder[min(attempt, len(ladder) - 1)]
-            output = runner(
-                chunks,
-                temperature=temperature,
-                model=node_cfg.model,
-                top_p=node_cfg.top_p,
-                max_tokens=node_cfg.max_tokens,
-            )
+            def _attempt(temp: float):
+                return runner(
+                    chunks,
+                    temperature=temp,
+                    model=node_cfg.model,
+                    top_p=node_cfg.top_p,
+                    max_tokens=node_cfg.max_tokens,
+                )
+
+            try:
+                output = _attempt(temperature)
+            except Exception as first_exc:
+                # A hard failure would otherwise emit an empty output that
+                # trivially passes validation — so the graph's retry ladder
+                # never fires for it. Give the node one immediate second
+                # attempt at the next temperature before degrading.
+                logger.warning(
+                    "Agent %s failed on attempt %s (%s: %s) — retrying once in-node.",
+                    agent.value, attempt, type(first_exc).__name__, first_exc,
+                )
+                try:
+                    output = _attempt(ladder[min(attempt + 1, len(ladder) - 1)])
+                except Exception as exc:
+                    # Per-agent error isolation: one agent's LLM failure must
+                    # not abort the other five. Degrade to an empty output,
+                    # which validation/confidence will score low. Record WHY —
+                    # otherwise this is indistinguishable from the agent
+                    # legitimately finding nothing, and a misconfigured model
+                    # (wrong name, no function-calling support, quota
+                    # exhausted, ...) is undiagnosable from the result alone.
+                    logger.warning(
+                        "Agent %s failed twice on attempt %s (%s: %s) — emitting empty output.",
+                        agent.value, attempt, type(exc).__name__, exc,
+                    )
+                    output = _empty_output_for(agent)
+                    return {
+                        _AGENT_STATE_FIELD[agent]: output,
+                        "agent_errors": {agent: f"{type(exc).__name__}: {exc}"},
+                    }
             return {_AGENT_STATE_FIELD[agent]: output}
 
         return node
@@ -294,7 +371,9 @@ def build_graph(ctx: RunContext) -> StateGraph:
         processing = ProcessingMetadata(
             document_id=state.document_id,
             llm_model=get_settings().llm_model,
+            prompt_versions=prompt_versions(),
             retry_counts={k.value: v for k, v in state.retry_counts.items()},
+            agent_errors={k.value: v for k, v in state.agent_errors.items()},
         )
         result = response_agent.assemble(
             metadata=state.metadata,
@@ -309,17 +388,26 @@ def build_graph(ctx: RunContext) -> StateGraph:
         return {"confidence": confidence, "result": result}
 
     def human_review_node(state: GraphState) -> dict:
-        flagged_fields = [
-            {
-                "agent": agent.value,
-                "field_path": f.field_path,
-                "status": f.status.value,
-                "reason": f.reason,
-            }
-            for agent, validation in state.validations.items()
-            for f in validation.fields
-            if f.status.value == "fail"
-        ]
+        # `validations` is a reducer-typed bare dict, so after a checkpoint
+        # round-trip (this node re-runs on resume-from-interrupt) its AgentName
+        # keys come back as plain strings and its AgentValidationResult values as
+        # plain dicts. Normalize both so the payload build can't crash — this is
+        # the only in-graph consumer of validations on the resume path.
+        flagged_fields = []
+        for agent, validation in state.validations.items():
+            agent_str = agent.value if isinstance(agent, AgentName) else str(agent)
+            if not isinstance(validation, AgentValidationResult):
+                validation = AgentValidationResult.model_validate(validation)
+            for f in validation.fields:
+                if f.status == ValidationStatus.FAIL:
+                    flagged_fields.append(
+                        {
+                            "agent": agent_str,
+                            "field_path": f.field_path,
+                            "status": f.status.value,
+                            "reason": f.reason,
+                        }
+                    )
         payload = {
             "document_id": state.document_id,
             "decision": state.confidence.decision.value,
@@ -351,52 +439,161 @@ def build_graph(ctx: RunContext) -> StateGraph:
     return graph
 
 
+@dataclass
+class RunOutcome:
+    """What driving the graph one leg produced.
+
+    status="paused": the run is durably checkpointed (Postgres, keyed by
+    document_id) at the human-review interrupt(). Nothing needs to stay
+    blocked waiting for a decision — resume_document() can be called later,
+    from any process, once one is available. status="completed": `state`
+    carries the final GraphState.
+    """
+
+    status: Literal["completed", "paused"]
+    state: GraphState | None = None
+    interrupt_payload: dict | None = None
+
+
+def _build_run_config(document_id: str, run_config: dict | None) -> dict:
+    settings = get_settings()
+    config = dict(run_config or {})
+    config.setdefault("configurable", {})["thread_id"] = document_id
+    # Serialize the agent fan-out when configured (e.g. rate-limited/free LLM
+    # tiers), so the 6 extraction agents don't all call the LLM at once.
+    if settings.pipeline_max_concurrency > 0:
+        config["max_concurrency"] = settings.pipeline_max_concurrency
+    return config
+
+
+def _drain(graph, stream_input, config: dict, on_node_update: Callable[[str], None] | None) -> None:
+    # stream_mode="updates" yields {node_name: update} per completed node —
+    # same execution semantics as invoke() (which wraps stream), but
+    # observable. The stream ends when the graph finishes OR pauses on
+    # interrupt(); the caller reads final/paused state via get_state().
+    for update in graph.stream(stream_input, config=config, stream_mode="updates"):
+        for node_name in update:
+            if node_name == "__interrupt__" or on_node_update is None:
+                continue
+            try:
+                on_node_update(node_name)
+            except Exception:
+                logger.exception("on_node_update callback failed for node %s", node_name)
+
+
+def _outcome_from_state(graph, config: dict) -> RunOutcome:
+    if graph.get_state(config).next:
+        interrupt_payload = graph.get_state(config).tasks[0].interrupts[0].value
+        return RunOutcome(status="paused", interrupt_payload=interrupt_payload)
+    values = graph.get_state(config).values
+    return RunOutcome(status="completed", state=GraphState.model_validate(values))
+
+
 def run_document(
     document_id: str,
     source_path: str,
     *,
     run_config: dict | None = None,
-    on_human_review: Callable[[dict], dict] | None = None,
-) -> tuple[GraphState, dict | None]:
-    """Parse + chunk + route a PDF, then run it through the compiled LangGraph
-    supervisor. `run_config` is typically `observability.traced_run_config(...)`
-    to attach Langfuse session/user/tags to the run.
+    on_node_update: Callable[[str], None] | None = None,
+) -> RunOutcome:
+    """Parse + chunk + route a PDF, then drive it through the compiled
+    LangGraph supervisor until it either finishes or pauses at the
+    human-review interrupt. `run_config` is typically
+    `observability.traced_run_config(...)` to attach Langfuse session/user/tags.
 
-    `on_human_review`, if given, is called with the human_review interrupt
-    payload whenever confidence routes a run to `human_required`; it must
-    return the resume decision dict (`{"action": "approve"|"reject"|"edit", ...}`).
-    Returns `(final_state, human_review_decision)` — the decision is None
-    unless the run was actually interrupted.
+    Does NOT block waiting for a review decision — on pause, returns
+    immediately with `status="paused"` and the interrupt payload. The run is
+    durably checkpointed (Postgres, keyed by `document_id`), so call
+    `resume_document()` whenever a decision becomes available, from any
+    process. (The old design blocked a thread here for up to 24h waiting on a
+    callback; since the checkpointer already supports resuming from a
+    different process, that blocking was never necessary — and in the web API
+    it meant one un-reviewed document could starve the single worker thread
+    and silently queue every other upload behind it forever. See api/jobs.py.)
+
+    `on_node_update`, if given, is called with each graph node's name as it
+    completes (the web API uses this for live progress streaming). Callback
+    errors are logged and swallowed — progress reporting must never be able
+    to abort a document run.
 
     Raises `PdfSafetyError` if the file fails the structural safety scan —
     the check runs as the graph's first node (`pdf_safety_gate`), before
     `parse_and_chunk` ever calls Docling on the file's bytes.
     """
     ctx = RunContext(str(source_path))
-
     initial_state = GraphState(document_id=document_id, source_path=str(source_path))
-
     settings = get_settings()
-    config = dict(run_config or {})
-    config.setdefault("configurable", {})["thread_id"] = document_id
+    config = _build_run_config(document_id, run_config)
 
     with PostgresSaver.from_conn_string(settings.database_url) as checkpointer:
         graph = build_graph(ctx).compile(checkpointer=checkpointer)
+        _drain(graph, initial_state, config, on_node_update)
+        values = graph.get_state(config).values
+        if values.get("pdf_safety_reasons"):
+            raise PdfSafetyError(values["pdf_safety_reasons"])
+        return _outcome_from_state(graph, config)
 
-        result = graph.invoke(initial_state, config=config)
-        if result.get("pdf_safety_reasons"):
-            raise PdfSafetyError(result["pdf_safety_reasons"])
 
-        human_review_decision: dict | None = None
+def resume_document(
+    document_id: str,
+    source_path: str,
+    *,
+    decision: dict,
+    run_config: dict | None = None,
+    on_node_update: Callable[[str], None] | None = None,
+) -> RunOutcome:
+    """Resumes a run paused at the human-review interrupt, from its Postgres
+    checkpoint (keyed by `document_id`) — safe to call from a different
+    process/thread than the one that hit the pause.
 
-        while graph.get_state(config).next:
-            if on_human_review is None:
-                raise RuntimeError(
-                    f"Run {document_id} paused for human review but no on_human_review "
-                    "callback was given to run_document()."
-                )
-            interrupt_payload = graph.get_state(config).tasks[0].interrupts[0].value
-            human_review_decision = on_human_review(interrupt_payload)
-            result = graph.invoke(Command(resume=human_review_decision), config=config)
+    `source_path` is only used to build a fresh (empty) RunContext; that's
+    safe because no graph node after `human_review` reads parsed chunks or the
+    embedding index (RunContext's own non-checkpointed data) — the checkpoint
+    already carries everything the remaining steps need. If the graph design
+    ever grows a second interrupt point, this can itself return
+    `status="paused"` again; today there is exactly one, so it always
+    completes.
+    """
+    ctx = RunContext(str(source_path))
+    settings = get_settings()
+    config = _build_run_config(document_id, run_config)
 
-    return GraphState.model_validate(result), human_review_decision
+    with PostgresSaver.from_conn_string(settings.database_url) as checkpointer:
+        graph = build_graph(ctx).compile(checkpointer=checkpointer)
+        _drain(graph, Command(resume=decision), config, on_node_update)
+        return _outcome_from_state(graph, config)
+
+
+def run_document_blocking(
+    document_id: str,
+    source_path: str,
+    *,
+    run_config: dict | None = None,
+    on_human_review: Callable[[dict], dict] | None = None,
+    on_node_update: Callable[[str], None] | None = None,
+) -> tuple[GraphState, dict | None]:
+    """Synchronous convenience wrapper over run_document()/resume_document(),
+    for callers that genuinely want to block on a decision — the CLI, which
+    prompts at a terminal and waits for the reviewer to type an answer right
+    there. NOT used by the web API: see api/jobs.py for why a web request
+    handler must never block a shared worker thread on human input.
+
+    `on_human_review`, if given, is called with the interrupt payload each
+    time the run pauses; it must return the resume decision dict
+    (`{"action": "approve"|"reject"|"edit", ...}`). Returns
+    `(final_state, human_review_decision)` — the decision is None unless the
+    run was actually interrupted.
+    """
+    outcome = run_document(document_id, source_path, run_config=run_config, on_node_update=on_node_update)
+    human_review_decision: dict | None = None
+    while outcome.status == "paused":
+        if on_human_review is None:
+            raise RuntimeError(
+                f"Run {document_id} paused for human review but no on_human_review "
+                "callback was given to run_document_blocking()."
+            )
+        human_review_decision = on_human_review(outcome.interrupt_payload)
+        outcome = resume_document(
+            document_id, source_path, decision=human_review_decision, run_config=run_config, on_node_update=on_node_update
+        )
+    return outcome.state, human_review_decision

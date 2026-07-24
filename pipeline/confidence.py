@@ -13,6 +13,7 @@ from schemas import (
     EvidenceOutput,
     FactsOutput,
     MetadataOutput,
+    ReviewDecision,
     StatuteOutput,
 )
 
@@ -121,4 +122,16 @@ def compute_confidence(
         + signals["cross_agent_consistency"] * weights.cross_agent_consistency
     )
 
-    return ConfidenceBreakdown(**signals, score=score, decision=ConfidenceBreakdown.decide(score))
+    breakdown = ConfidenceBreakdown(**signals, score=score, decision=ConfidenceBreakdown.decide(score))
+
+    # Minimum-evidence floor. Four of the five signals default to 1.0 when there
+    # is nothing to measure (no fields to validate/verify, no provenance to
+    # cover, no contradiction to find), so an essentially empty extraction still
+    # reaches ~0.85. A record with none of the core identifying fields (court,
+    # decision_date, case_number) is not trustworthy no matter how the
+    # absence-defaulting signals score it — floor it to human_required, the same
+    # guardrail spirit as the injection-match floor in graph.py.
+    if signals["schema_completeness"] == 0.0 and breakdown.decision != ReviewDecision.HUMAN_REQUIRED:
+        breakdown = breakdown.model_copy(update={"decision": ReviewDecision.HUMAN_REQUIRED})
+
+    return breakdown

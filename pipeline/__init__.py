@@ -1,1 +1,1 @@
-"""Legal AI extraction pipeline — LangGraph supervisor, agents, validation, confidence."""
+"""The 6 isolated extraction agents + the Response Agent (assembly only)."""

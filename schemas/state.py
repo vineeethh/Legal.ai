@@ -49,6 +49,7 @@ class PipelineState(BaseModel):
 
     # Populated by parse/chunk/index nodes.
     chunk_count: int = 0
+    page_count: int = 0
     ocr_used: bool = False
 
     # Per-agent isolated inputs (supervisor fills these before fan-out).
@@ -65,6 +66,16 @@ class PipelineState(BaseModel):
     # Validation + retry bookkeeping.
     validations: dict[AgentName, AgentValidationResult] = Field(default_factory=dict)
     retry_counts: dict[AgentName, int] = Field(default_factory=dict)
+
+    # agent name -> the exception message from its LAST failed attempt, set
+    # only when the agent exhausted its retries and degraded to an empty
+    # output (pipeline/graph.py make_agent_node). Without this, an agent that
+    # fails outright (bad model config, no function-calling support, quota
+    # exhausted, ...) looks IDENTICAL to one that legitimately found nothing —
+    # both just show up as empty fields with no explanation. Surfaced in
+    # ProcessingMetadata.agent_errors and the web UI so a misconfigured model
+    # is diagnosable without reading server logs.
+    agent_errors: dict[AgentName, str] = Field(default_factory=dict)
 
     # Assembly + scoring.
     confidence: Optional[ConfidenceBreakdown] = None

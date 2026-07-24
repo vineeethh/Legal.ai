@@ -16,6 +16,14 @@ from ..llm import get_chat_model
 
 T = TypeVar("T", bound=BaseModel)
 
+
+class StructuredOutputError(RuntimeError):
+    """The model returned no parseable instance of the requested schema (e.g. it
+    made no tool call, or an unparseable one). Raised instead of a bare assert so
+    the graph's per-agent error isolation (pipeline/graph.py) can catch it and
+    emit an empty output rather than aborting the whole document run."""
+
+
 ISOLATION_REMINDER = (
     "You only have access to the excerpt below — you do not see the full judgment or "
     "any other agent's output. Each excerpt is preceded by a marker "
@@ -46,13 +54,24 @@ def run_structured_agent(
     top_p: float | None = None,
     max_tokens: int | None = None,
 ) -> T:
+    # method="function_calling": return the structured object via a tool call
+    # rather than OpenAI's json_schema response_format. Tool-call arguments are
+    # parsed as JSON directly, so models that wrap json_schema output in a
+    # ```json markdown fence (common across the OpenRouter model zoo) still
+    # parse cleanly. Broadly compatible across major model providers.
     chat = get_chat_model(
         model=model, temperature=temperature, top_p=top_p, max_tokens=max_tokens
-    ).with_structured_output(schema)
+    ).with_structured_output(schema, method="function_calling")
     messages = [
         ("system", f"{system_prompt}\n\n{ISOLATION_REMINDER}"),
         ("human", context_text or "(no routed excerpts for this document)"),
     ]
     result = chat.invoke(messages)
-    assert isinstance(result, schema)
+    if not isinstance(result, schema):
+        # with_structured_output returns None when the model makes no valid tool
+        # call. Surface it as a typed error the graph node can isolate.
+        raise StructuredOutputError(
+            f"{schema.__name__}: model returned no valid structured output "
+            f"(got {type(result).__name__})."
+        )
     return result

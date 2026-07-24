@@ -1,0 +1,39 @@
+# Keep the Docker build context small and secret-free. At runtime docker-compose
+# bind-mounts the project over /app, so none of these need to be baked into the
+# image — and some must never be (secrets, multi-GB caches).
+
+# Secrets / local config
+.env
+.env.*
+!.env.example
+
+# HuggingFace model weights cache (GBs; provided at runtime via the HF_HOME
+# bind-mounted volume). This was breaking `docker build` on a symlinked file.
+.hf_cache/
+
+# VCS / IDE / agent
+.git/
+.gitignore
+.claude/
+
+# Python caches / build artifacts
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Data (bind-mounted at runtime; raw PDFs + inputs must not be in the image)
+data/raw/
+data/judgments/
+
+# Frontend (built/run in its own node container; never part of the Python image)
+web/
+
+# Run outputs
+result.json
+*.log

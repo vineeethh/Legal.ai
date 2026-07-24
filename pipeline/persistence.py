@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 import psycopg
@@ -19,8 +19,13 @@ def save_run(
     started_at: datetime,
     langfuse_session_id: str | None = None,
     human_review_decision: dict | None = None,
+    source_filename: str | None = None,
 ) -> str:
-    """Persists the completed run; returns the processing_runs.id (UUID str)."""
+    """Persists the completed run; returns the processing_runs.id (UUID str).
+
+    `source_filename` preserves the user's original upload name — web uploads
+    are stored on disk as {document_id}.pdf, so the on-disk name is not the
+    display name. Defaults to the stored file's basename (the CLI path)."""
     if state.result is None:
         raise ValueError("Cannot persist a run with no assembled result.")
 
@@ -29,13 +34,21 @@ def save_run(
 
     with psycopg.connect(settings.database_url) as conn:
         with conn.cursor() as cur:
+            # Use the run's own document_id as the documents PK so the persisted
+            # row, the LangGraph checkpoint thread_id, and the Langfuse session
+            # all share one id (previously this row got a fresh gen_random_uuid,
+            # so a saved record couldn't be joined to its trace/checkpoint).
             cur.execute(
                 """
-                INSERT INTO documents (source_filename, page_count, ocr_used)
-                VALUES (%s, %s, %s)
+                INSERT INTO documents (id, source_filename, page_count, ocr_used)
+                VALUES (%s, %s, %s, %s)
+                ON CONFLICT (id) DO UPDATE SET
+                    source_filename = EXCLUDED.source_filename,
+                    page_count = EXCLUDED.page_count,
+                    ocr_used = EXCLUDED.ocr_used
                 RETURNING id
                 """,
-                (source_path.name, None, state.ocr_used),
+                (state.document_id, source_filename or source_path.name, state.page_count, state.ocr_used),
             )
             document_id = cur.fetchone()[0]
 
@@ -59,7 +72,7 @@ def save_run(
                     json.dumps(human_review_decision) if human_review_decision is not None else None,
                     langfuse_session_id,
                     started_at,
-                    datetime.utcnow(),
+                    datetime.now(timezone.utc),
                 ),
             )
             run_id = cur.fetchone()[0]

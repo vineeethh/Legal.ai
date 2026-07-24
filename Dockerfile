@@ -20,7 +20,7 @@ COPY db ./db
 # CPU-only torch+torchvision first, installed together so their ABIs match —
 # the default PyPI wheels also pull ~2GB of unused NVIDIA CUDA packages,
 # which this container never uses.
-RUN pip install --no-cache-dir torch torchvision --index-url https://download.pytorch.org/whl/cpu
+RUN pip install --no-cache-dir torch==2.13.0 torchvision==0.28.0 --index-url https://download.pytorch.org/whl/cpu
 RUN pip install --no-cache-dir -e .
 
 COPY . .

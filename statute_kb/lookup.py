@@ -16,8 +16,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import date
 
-import psycopg
-from psycopg.rows import dict_row
 from qdrant_client import QdrantClient
 
 from pipeline.config import get_settings
@@ -89,11 +87,12 @@ def _fetch_current_equivalent(cur, act: StatuteAct, section_number: str) -> dict
     return cur.fetchone()
 
 
-def _semantic_fallback(quoted_text: str, act_hint: StatuteAct | None) -> tuple[dict | None, float]:
+def _semantic_fallback(
+    client: QdrantClient, quoted_text: str, act_hint: StatuteAct | None
+) -> tuple[dict | None, float]:
     from pipeline.embeddings import embed_texts
 
     settings = get_settings()
-    client = QdrantClient(url=settings.qdrant_url, api_key=settings.qdrant_api_key or None)
     query_filter = None
     if act_hint is not None and act_hint != StatuteAct.UNKNOWN:
         from qdrant_client.models import FieldCondition, Filter, MatchValue
@@ -113,15 +112,22 @@ def _semantic_fallback(quoted_text: str, act_hint: StatuteAct | None) -> tuple[d
 
 
 def verify_citation(
+    cur,
+    qdrant_client: QdrantClient,
     *,
     parsed_act: StatuteAct,
     parsed_section: str | None,
     quoted_text: str | None = None,
     as_of_date: date | None = None,
 ) -> VerificationResult:
+    """Verify one citation using a caller-provided Postgres cursor and Qdrant
+    client, so a document's citations share one connection/client each rather
+    than opening one per call (see pipeline/statute_verification.py)."""
     if parsed_section is None or parsed_act == StatuteAct.UNKNOWN:
         if quoted_text:
-            payload, score = _semantic_fallback(quoted_text, parsed_act if parsed_act != StatuteAct.UNKNOWN else None)
+            payload, score = _semantic_fallback(
+                qdrant_client, quoted_text, parsed_act if parsed_act != StatuteAct.UNKNOWN else None
+            )
             if payload and score >= MISMATCH_SIMILARITY_THRESHOLD:
                 return VerificationResult(
                     status=VerificationStatus.NOT_FOUND,
@@ -134,34 +140,31 @@ def verify_citation(
                 )
         return VerificationResult(VerificationStatus.SKIPPED, None, "Citation act/section could not be parsed.", None)
 
-    settings = get_settings()
-    with psycopg.connect(settings.database_url, row_factory=dict_row) as conn:
-        with conn.cursor() as cur:
-            row = _fetch_exact(cur, parsed_act, parsed_section, as_of_date)
+    row = _fetch_exact(cur, parsed_act, parsed_section, as_of_date)
 
-            if row is None:
-                return VerificationResult(
-                    status=VerificationStatus.NOT_FOUND,
-                    kb_match=None,
-                    note=f"No KB entry for {parsed_act.value} section {parsed_section}.",
-                    current_equivalent=None,
-                )
+    if row is None:
+        return VerificationResult(
+            status=VerificationStatus.NOT_FOUND,
+            kb_match=None,
+            note=f"No KB entry for {parsed_act.value} section {parsed_section}.",
+            current_equivalent=None,
+        )
 
-            kb_match = _row_to_kb_match(row)
-            status = VerificationStatus.VERIFIED
-            note = None
+    kb_match = _row_to_kb_match(row)
+    status = VerificationStatus.VERIFIED
+    note = None
 
-            if quoted_text:
-                from pipeline.embeddings import get_reranker
+    if quoted_text:
+        from pipeline.embeddings import get_reranker
 
-                score = get_reranker().compute_score([[quoted_text, row["content"]]], normalize=True)
-                score = score[0] if isinstance(score, list) else score
-                if score < MISMATCH_SIMILARITY_THRESHOLD:
-                    status = VerificationStatus.MISMATCH
-                    note = f"Quoted text diverges from canonical section text (similarity={score:.2f})."
-                kb_match = _row_to_kb_match(row, similarity_score=float(score))
+        score = get_reranker().compute_score([[quoted_text, row["content"]]], normalize=True)
+        score = score[0] if isinstance(score, list) else score
+        if score < MISMATCH_SIMILARITY_THRESHOLD:
+            status = VerificationStatus.MISMATCH
+            note = f"Quoted text diverges from canonical section text (similarity={score:.2f})."
+        kb_match = _row_to_kb_match(row, similarity_score=float(score))
 
-            equiv_row = _fetch_current_equivalent(cur, parsed_act, parsed_section)
-            current_equivalent = _row_to_kb_match(equiv_row) if equiv_row else None
+    equiv_row = _fetch_current_equivalent(cur, parsed_act, parsed_section)
+    current_equivalent = _row_to_kb_match(equiv_row) if equiv_row else None
 
     return VerificationResult(status=status, kb_match=kb_match, note=note, current_equivalent=current_equivalent)

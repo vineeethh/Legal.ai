@@ -12,27 +12,64 @@ Two distinct uses:
 
 from __future__ import annotations
 
+import threading
+
 import numpy as np
-from FlagEmbedding import BGEM3FlagModel, FlagReranker
+from FlagEmbedding import BGEM3FlagModel
+from sentence_transformers import CrossEncoder
 
 from .chunking import Chunk
 from .config import get_settings
 
 _embed_model: BGEM3FlagModel | None = None
-_reranker: FlagReranker | None = None
+_reranker: "_CrossEncoderReranker | None" = None
+# These models are large and lazily built. The 6 extraction agents fan out
+# concurrently (LangGraph Pregel), so without a lock two threads can race into
+# building the same model at once — wasteful re-load and a memory spike.
+_embed_lock = threading.Lock()
+_reranker_lock = threading.Lock()
+
+
+class _CrossEncoderReranker:
+    """bge-reranker-v2-m3 via sentence-transformers' CrossEncoder.
+
+    Replaces FlagEmbedding.FlagReranker, whose compute_score() calls the
+    tokenizer's prepare_for_model() — a method transformers 5.x removed. (The
+    BGE-M3 *embedder* uses a different code path that is unaffected, so it
+    stays on FlagEmbedding.) CrossEncoder loads the same model and is
+    transformers-5 compatible. It keeps the exact compute_score(pairs,
+    normalize=True) contract the call sites already use: one logit per pair,
+    sigmoid-mapped to [0,1] when normalize=True, so the existing 0.55
+    similarity thresholds (router fallback, statute verification) are unchanged.
+    """
+
+    def __init__(self, model_name: str):
+        self._ce = CrossEncoder(model_name)
+
+    def compute_score(self, pairs: list[list[str]], normalize: bool = True) -> list[float]:
+        if not pairs:
+            return []
+        scores = np.asarray(self._ce.predict(pairs), dtype=float)
+        if normalize:
+            scores = 1.0 / (1.0 + np.exp(-scores))
+        return scores.tolist()
 
 
 def get_embed_model() -> BGEM3FlagModel:
     global _embed_model
-    if _embed_model is None:
-        _embed_model = BGEM3FlagModel(get_settings().embedding_model, use_fp16=False)
+    if _embed_model is None:  # fast path: no lock once built
+        with _embed_lock:
+            if _embed_model is None:  # re-check under the lock
+                _embed_model = BGEM3FlagModel(get_settings().embedding_model, use_fp16=False)
     return _embed_model
 
 
-def get_reranker() -> FlagReranker:
+def get_reranker() -> "_CrossEncoderReranker":
     global _reranker
     if _reranker is None:
-        _reranker = FlagReranker(get_settings().reranker_model, use_fp16=False)
+        with _reranker_lock:
+            if _reranker is None:
+                _reranker = _CrossEncoderReranker(get_settings().reranker_model)
     return _reranker
 
 

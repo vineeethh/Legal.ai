@@ -10,11 +10,24 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from pathlib import Path
 
+import re
+
 from docling.datamodel.base_models import InputFormat
 from docling.datamodel.pipeline_options import PdfPipelineOptions
 from docling.document_converter import DocumentConverter, PdfFormatOption
 from docling_core.types.doc import DoclingDocument
 from docling_core.types.doc.labels import DocItemLabel
+
+# Some bare-act PDFs (observed on CrPC) repeat the current section number as a
+# marginal marker on every continuation page (e.g. "16." on 7 consecutive
+# pages while section 16's text runs on). Docling's layout model classifies
+# these as their own TITLE/SECTION_HEADER items, which — without this check —
+# flushes the buffer and starts a new heading group stamped with just the bare
+# number, decoupling it from the title+body text that follows in the next
+# item. statute_kb.parser's header regex needs the number, title, and body in
+# the same block, so a bare-number "heading" is treated as ordinary body text
+# instead of a real section boundary.
+_BARE_SECTION_NUMBER_RE = re.compile(r"^\d{1,4}[A-Z]{0,3}\.?$")
 
 
 @dataclass
@@ -86,7 +99,9 @@ def parse_pdf(path: str | Path) -> ParsedDocument:
         if prov:
             page_no = prov[0].page_no
 
-        if item.label in (DocItemLabel.TITLE, DocItemLabel.SECTION_HEADER):
+        if item.label in (DocItemLabel.TITLE, DocItemLabel.SECTION_HEADER) and not _BARE_SECTION_NUMBER_RE.match(
+            text.strip()
+        ):
             flush()
             heading_stack = heading_stack[: level - 1] if level > 0 else []
             heading_stack.append(text)
@@ -94,6 +109,16 @@ def parse_pdf(path: str | Path) -> ParsedDocument:
             current_level = level
             current_page = page_no
         else:
+            if page_no != current_page and buffer:
+                # Flush at page boundaries too, not just headings. A judgment's
+                # reasoning body often sits under a single heading (e.g. the
+                # judge's name) for many pages — without this, the whole
+                # multi-page run collapses into one ParsedSection stamped with
+                # whatever page happened to be current when it finally
+                # flushed (the LAST page touched), so every chunk cut from it
+                # — and every SourceRef.page built from those chunks — would
+                # point at the wrong page for all but the final page's content.
+                flush()
             current_page = page_no
             buffer.append(text)
 

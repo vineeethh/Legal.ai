@@ -17,7 +17,12 @@ class NodeLLMConfig:
     model: str | None = None
     temperature_ladder: tuple[float, ...] = (0.0, 0.4, 0.7)
     top_p: float | None = None
-    max_tokens: int | None = None
+    # Cap the completion budget. Left unset, providers (e.g. OpenRouter) default
+    # to the model's max ceiling (tens of thousands of tokens), which is both
+    # wasteful and can trip credit/affordability limits — an extracted structured
+    # JSON for one document never needs that much. Tune per node if a very long
+    # output is ever truncated.
+    max_tokens: int | None = 8192
     # Per-agent confidence floor — AgentValidationResult.pass_rate (fraction of
     # fields that passed span-grounded validation) must reach this to stop
     # retrying. 1.0 (default) preserves the original behavior: every field

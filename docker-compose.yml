@@ -21,6 +21,42 @@ services:
     tty: true
     stdin_open: true
 
+  # Local web API (FastAPI). Same image as `app`; bound to localhost only —
+  # this is a single-user tool with no auth layer by design.
+  api:
+    build: .
+    env_file: .env
+    environment:
+      - HF_HOME=/app/.hf_cache
+    command: uvicorn api.main:app --host 0.0.0.0 --port 8000
+    ports:
+      - "127.0.0.1:8000:8000"
+    volumes:
+      - .:/app
+    depends_on:
+      - qdrant
+    restart: unless-stopped
+
+  # Local web UI (Next.js dev server). node_modules lives in a named volume so
+  # `npm install` survives restarts and never fights the Windows bind mount.
+  web:
+    image: node:22-alpine
+    working_dir: /web
+    command: sh -c "npm install && npm run dev"
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost:8000
+      # File events don't propagate across a Windows bind mount into the Linux
+      # container — poll instead, or the dev server never sees host edits.
+      - WATCHPACK_POLLING=true
+    ports:
+      - "127.0.0.1:3000:3000"
+    volumes:
+      - ./web:/web
+      - web_node_modules:/web/node_modules
+    depends_on:
+      - api
+    restart: unless-stopped
+
   qdrant:
     image: qdrant/qdrant:latest
     restart: unless-stopped
@@ -32,3 +68,4 @@ services:
 
 volumes:
   qdrant_data:
+  web_node_modules:

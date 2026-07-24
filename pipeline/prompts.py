@@ -8,6 +8,8 @@ entries that agent modules export, so the architecture doc generator
 
 from __future__ import annotations
 
+import hashlib
+
 from schemas import AgentName
 
 from .agents import arguments as arguments_agent
@@ -21,3 +23,16 @@ AGENT_PROMPTS: dict[AgentName, PromptSpec] = {}
 for _module in (metadata_agent, facts_agent, statute_agent, arguments_agent, evidence_agent):
     AGENT_PROMPTS.update(_module.PROMPT_SPECS)
 del _module
+
+
+def prompt_versions() -> dict[str, str]:
+    """Map each agent name -> a short stable hash of its system prompt.
+
+    Stored in ProcessingMetadata.prompt_versions so a persisted record pins the
+    exact prompt text it was produced with (reproducibility/audit). A prompt
+    edit changes the hash, so two runs are comparable only when the hashes match.
+    """
+    return {
+        agent.value: hashlib.sha256(spec.system_prompt.encode("utf-8")).hexdigest()[:12]
+        for agent, spec in AGENT_PROMPTS.items()
+    }

@@ -11,7 +11,7 @@ import argparse
 import json
 import sys
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 
@@ -59,19 +59,19 @@ def main() -> None:
     # Imported lazily so `--help` doesn't require every dependency installed.
     from observability import traced_run_config, verify_langfuse_connection
 
-    from .graph import run_document
+    from .graph import run_document_blocking
     from .pdf_safety import PdfSafetyError
     from .persistence import save_run
 
     document_id = str(uuid.uuid4())
     verify_langfuse_connection()
 
-    started_at = datetime.utcnow()
+    started_at = datetime.now(timezone.utc)
     print(f"Processing {pdf_path.name} (document_id={document_id}) ...")
 
     run_config = traced_run_config(session_id=document_id, tags=["cli"])
     try:
-        state, human_review_decision = run_document(
+        state, human_review_decision = run_document_blocking(
             document_id, str(pdf_path), run_config=run_config, on_human_review=_cli_human_review
         )
     except PdfSafetyError as exc:

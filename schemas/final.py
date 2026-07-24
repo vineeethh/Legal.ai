@@ -7,7 +7,7 @@ processing metadata needed for audit/reproducibility.
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 
 from pydantic import BaseModel, Field
 
@@ -30,7 +30,15 @@ class ProcessingMetadata(BaseModel):
         default_factory=dict, description="agent name -> prompt hash used, for reproducibility."
     )
     retry_counts: dict[str, int] = Field(default_factory=dict, description="agent name -> retries used.")
-    processed_at: datetime = Field(default_factory=datetime.utcnow)
+    agent_errors: dict[str, str] = Field(
+        default_factory=dict,
+        description=(
+            "agent name -> exception message from its last failed attempt, present only "
+            "for agents that exhausted retries and degraded to an empty output. "
+            "Distinguishes 'the model/endpoint is broken' from 'nothing was found'."
+        ),
+    )
+    processed_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     duration_seconds: float | None = None
 
 

@@ -42,10 +42,16 @@ def process_act(entry: ActEntry) -> Path:
     parsed = parse_pdf(pdf_path)
     print(f"[{entry.act_version}] {len(parsed.sections)} heading-groups, ocr_used={parsed.ocr_used}")
 
-    raw_sections = split_into_sections(parsed)
+    raw_sections, unmatched_paths = split_into_sections(parsed)
     print(f"[{entry.act_version}] {len(raw_sections)} sections extracted")
+    if unmatched_paths:
+        print(
+            f"[{entry.act_version}] WARNING: {len(unmatched_paths)} heading-group(s) had "
+            f"text but no section header matched at all — content likely dropped: "
+            f"{unmatched_paths}"
+        )
 
-    report = coverage_report(raw_sections)
+    report = coverage_report(raw_sections, unmatched_paths)
     PROCESSED_DIR.mkdir(parents=True, exist_ok=True)
     report_path = PROCESSED_DIR / f"{entry.act_version}.report.json"
     report_path.write_text(json.dumps(report, indent=2))
@@ -160,6 +166,17 @@ def main() -> None:
             "constrained container's memory if loaded in the same process."
         ),
     )
+    parser.add_argument(
+        "--postgres-only",
+        action="store_true",
+        help=(
+            "Skip Docling parsing entirely and load Postgres (the Tier-1 "
+            "verification source) from an existing data/processed/<version>.jsonl. "
+            "The symmetric counterpart to --embed-only, so the KB can be populated "
+            "from the committed seed JSONL without needing the raw act PDFs. Loads "
+            "no ML models, so it is fast and light."
+        ),
+    )
     args = parser.parse_args()
 
     wanted = set(args.acts.split(",")) if args.acts else None
@@ -167,6 +184,16 @@ def main() -> None:
     if not entries:
         print("No matching acts in registry.", file=sys.stderr)
         sys.exit(1)
+
+    if args.postgres_only:
+        for entry in entries:
+            jsonl_path = PROCESSED_DIR / f"{entry.act_version}.jsonl"
+            if not jsonl_path.exists():
+                print(f"SKIP: {jsonl_path} not found — run the parse step first.", file=sys.stderr)
+                continue
+            n = load_postgres(jsonl_path)
+            print(f"[{entry.act_version}] upserted {n} rows into Postgres")
+        return
 
     if args.embed_only:
         for entry in entries:
