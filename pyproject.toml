@@ -20,7 +20,17 @@ dependencies = [
     "python-dotenv",
     "sentence-transformers",
     "FlagEmbedding",
+    "fastapi",
+    "uvicorn[standard]",
+    "python-multipart",
 ]
 
+[project.optional-dependencies]
+dev = ["pytest", "httpx"]
+
 [tool.setuptools.packages.find]
-include = ["schemas*", "observability*", "pipeline*", "statute_kb*"]
+include = ["schemas*", "observability*", "pipeline*", "statute_kb*", "api*", "evaluation*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
