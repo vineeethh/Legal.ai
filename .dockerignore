@@ -1,0 +1,15 @@
+# Secrets come from env_file at runtime — never bake them into an image layer.
+.env
+
+# Large or machine-specific
+.hf_cache/
+.venv/
+venv/
+**/__pycache__/
+ui/node_modules/
+ui/dist/
+
+# Runtime data (may contain real case documents)
+data/uploads/
+data/api_jobs/
+data/judgments/*.pdf

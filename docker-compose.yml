@@ -5,6 +5,9 @@
 # CMake build locally. The Docker image is linux/amd64 with manylinux wheels
 # available, so `docker compose run app ...` is the supported way to run the
 # pipeline/ingestion on this machine.
+#
+#   docker compose up -d qdrant api ui      # web app on http://localhost:3000
+#   docker compose run --rm app python -m pipeline.run judgment.pdf
 services:
   app:
     build: .
@@ -20,6 +23,31 @@ services:
       - qdrant
     tty: true
     stdin_open: true
+
+  # HTTP API (FastAPI). Same image as `app`; models stay loaded between documents.
+  # Set LEGAL_AI_DEMO_MODE=1 in .env to run it without Docling/LLM/DB access.
+  api:
+    build: .
+    env_file: .env
+    environment:
+      - HF_HOME=/app/.hf_cache
+    command: uvicorn api.main:app --host 0.0.0.0 --port 8000
+    ports:
+      - "8000:8000"
+    volumes:
+      - .:/app
+    depends_on:
+      - qdrant
+    restart: unless-stopped
+
+  # Web UI: static React build served by nginx, which proxies /api to `api`.
+  ui:
+    build: ./ui
+    ports:
+      - "3000:80"
+    depends_on:
+      - api
+    restart: unless-stopped
 
   qdrant:
     image: qdrant/qdrant:latest
