@@ -1,0 +1,19 @@
+{
+  "case_id": "sample_low_confidence",
+  "pdf": "data/judgments/sample_low_confidence.pdf",
+  "synthetic": true,
+  "notes": "Made-up example: the prediction abstained on case_number and named a bench this judgment does not state.",
+  "metadata": {
+    "court": "High Court of Karnataka at Bengaluru",
+    "bench": null,
+    "decision_date": "2021-03-15",
+    "case_number": "Criminal Appeal No. 412 of 2018",
+    "jurisdiction": "Criminal appellate jurisdiction under Section 374(2) CrPC",
+    "judges": ["Hon'ble Mr. Justice A. R. Menon", "Hon'ble Mrs. Justice S. K. Rao"]
+  },
+  "statutes": [
+    {"act": "indian_penal_code", "section": "302"},
+    {"act": "indian_penal_code", "section": "34"},
+    {"act": "code_of_criminal_procedure", "section": "313"}
+  ]
+}

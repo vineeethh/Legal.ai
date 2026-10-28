@@ -1,0 +1,24 @@
+{
+  "case_id": "sample_high_confidence",
+  "pdf": "data/judgments/sample_high_confidence.pdf",
+  "synthetic": true,
+  "notes": "Made-up example paired with the demo-mode output, to show how scoring works. Not real accuracy data.",
+  "metadata": {
+    "court": "High Court of Karnataka",
+    "bench": "Division Bench",
+    "decision_date": "2021-03-15",
+    "case_number": "Crl.A. No. 412/2018",
+    "judges": ["A. R. Menon, J.", "S. K. Rao, J."],
+    "petitioners": ["Ramesh Kumar"],
+    "respondents": ["State of Karnataka"]
+  },
+  "statutes": [
+    {"act": "indian_penal_code", "section": "302"},
+    {"act": "indian_penal_code", "section": "34"},
+    {"act": "indian_penal_code", "section": "201"},
+    {"act": "code_of_criminal_procedure", "section": "313"},
+    {"act": "constitution_of_india", "section": "21"}
+  ],
+  "evidence_labels": ["PW-1", "PW-2", "PW-6", "Ex.P5", "MO-1"],
+  "timeline_dates": ["2016-08-12", "2016-08-13", "2018-01-20"]
+}

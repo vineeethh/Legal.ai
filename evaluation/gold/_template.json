@@ -1,0 +1,21 @@
+{
+  "case_id": "my_case_2019",
+  "pdf": "data/judgments/my_case_2019.pdf",
+  "notes": "Leave a key out = not labelled (skipped). null or [] = the judgment does not contain it.",
+  "metadata": {
+    "court": "High Court of Delhi",
+    "bench": null,
+    "decision_date": "2019-07-04",
+    "case_number": "Criminal Appeal No. 123 of 2017",
+    "jurisdiction": null,
+    "judges": ["Justice First Judge", "Justice Second Judge"],
+    "petitioners": ["Appellant Name"],
+    "respondents": ["State (NCT of Delhi)"]
+  },
+  "statutes": [
+    {"act": "indian_penal_code", "section": "302"},
+    {"act": "code_of_criminal_procedure", "section": "313"}
+  ],
+  "evidence_labels": ["PW-1", "Ex. P-1"],
+  "timeline_dates": ["2016-01-31"]
+}

@@ -1,0 +1,570 @@
+{
+  "metadata": {
+    "court": {
+      "value": "High Court of Karnataka at Bengaluru",
+      "sources": [
+        {
+          "page": 1,
+          "quote": "IN THE HIGH COURT OF KARNATAKA AT BENGALURU",
+          "char_start": null,
+          "char_end": null,
+          "chunk_id": "demo-chunk-01",
+          "section_path": "root"
+        }
+      ],
+      "extraction_confidence": null
+    },
+    "bench": {
+      "value": "Division Bench",
+      "sources": [
+        {
+          "page": 1,
+          "quote": "BEFORE THE DIVISION BENCH",
+          "char_start": null,
+          "char_end": null,
+          "chunk_id": "demo-chunk-01",
+          "section_path": "root"
+        }
+      ],
+      "extraction_confidence": null
+    },
+    "judges": [
+      {
+        "value": "Justice A. R. Menon",
+        "sources": [
+          {
+            "page": 1,
+            "quote": "HON'BLE MR. JUSTICE A. R. MENON",
+            "char_start": null,
+            "char_end": null,
+            "chunk_id": "demo-chunk-01",
+            "section_path": "root"
+          }
+        ],
+        "extraction_confidence": null
+      },
+      {
+        "value": "Justice S. K. Rao",
+        "sources": [
+          {
+            "page": 1,
+            "quote": "HON'BLE MRS. JUSTICE S. K. RAO",
+            "char_start": null,
+            "char_end": null,
+            "chunk_id": "demo-chunk-01",
+            "section_path": "root"
+          }
+        ],
+        "extraction_confidence": null
+      }
+    ],
+    "decision_date": {
+      "value": "2021-03-15",
+      "sources": [
+        {
+          "page": 1,
+          "quote": "DATED THIS THE 15TH DAY OF MARCH, 2021",
+          "char_start": null,
+          "char_end": null,
+          "chunk_id": "demo-chunk-01",
+          "section_path": "root"
+        }
+      ],
+      "extraction_confidence": null
+    },
+    "case_number": {
+      "value": "Criminal Appeal No. 412 of 2018",
+      "sources": [
+        {
+          "page": 1,
+          "quote": "CRIMINAL APPEAL No. 412 OF 2018",
+          "char_start": null,
+          "char_end": null,
+          "chunk_id": "demo-chunk-02",
+          "section_path": "root"
+        }
+      ],
+      "extraction_confidence": null
+    },
+    "petitioners": [
+      {
+        "value": {
+          "name": "Ramesh Kumar",
+          "role": "Appellant"
+        },
+        "sources": [
+          {
+            "page": 1,
+            "quote": "Ramesh Kumar, aged about 34 years ... APPELLANT",
+            "char_start": null,
+            "char_end": null,
+            "chunk_id": "demo-chunk-02",
+            "section_path": "root"
+          }
+        ],
+        "extraction_confidence": null
+      }
+    ],
+    "respondents": [
+      {
+        "value": {
+          "name": "State of Karnataka",
+          "role": "Respondent"
+        },
+        "sources": [
+          {
+            "page": 1,
+            "quote": "State of Karnataka, by Hebbal Police Station ... RESPONDENT",
+            "char_start": null,
+            "char_end": null,
+            "chunk_id": "demo-chunk-02",
+            "section_path": "root"
+          }
+        ],
+        "extraction_confidence": null
+      }
+    ],
+    "jurisdiction": {
+      "value": "Criminal appellate jurisdiction under Section 374(2) CrPC",
+      "sources": [
+        {
+          "page": 2,
+          "quote": "This appeal is filed under Section 374(2) of Cr.P.C.",
+          "char_start": null,
+          "char_end": null,
+          "chunk_id": "demo-chunk-03",
+          "section_path": "JUDGMENT"
+        }
+      ],
+      "extraction_confidence": null
+    }
+  },
+  "facts": {
+    "background": {
+      "value": "The appellant and the deceased were neighbours with a long-running dispute over a boundary wall.",
+      "sources": [
+        {
+          "page": 2,
+          "quote": "the appellant and the deceased were neighbours and there was a long-standing dispute between them regarding the boundary wall",
+          "char_start": null,
+          "char_end": null,
+          "chunk_id": "demo-chunk-04",
+          "section_path": "JUDGMENT > BRIEF FACTS"
+        }
+      ],
+      "extraction_confidence": null
+    },
+    "incident_summary": {
+      "value": "On the night of 12 August 2016 the deceased was assaulted with a knife near his house and died of his injuries.",
+      "sources": [
+        {
+          "page": 2,
+          "quote": "on 12.08.2016 at about 10.30 p.m. the accused assaulted the deceased with a knife near his house",
+          "char_start": null,
+          "char_end": null,
+          "chunk_id": "demo-chunk-04",
+          "section_path": "JUDGMENT > BRIEF FACTS"
+        }
+      ],
+      "extraction_confidence": null
+    },
+    "key_facts": [
+      {
+        "value": "PW-1, the deceased's brother, claims to have witnessed the assault.",
+        "sources": [
+          {
+            "page": 3,
+            "quote": "PW-1, the brother of the deceased, has deposed that he witnessed the incident",
+            "char_start": null,
+            "char_end": null,
+            "chunk_id": "demo-chunk-05",
+            "section_path": "JUDGMENT > BRIEF FACTS"
+          }
+        ],
+        "extraction_confidence": null
+      },
+      {
+        "value": "The knife (MO-1) was recovered at the appellant's instance.",
+        "sources": [
+          {
+            "page": 3,
+            "quote": "MO-1 knife was recovered at the instance of the accused",
+            "char_start": null,
+            "char_end": null,
+            "chunk_id": "demo-chunk-05",
+            "section_path": "JUDGMENT > BRIEF FACTS"
+          }
+        ],
+        "extraction_confidence": null
+      },
+      {
+        "value": "The trial court convicted the appellant under Section 302 read with Section 34 IPC.",
+        "sources": [
+          {
+            "page": 3,
+            "quote": "convicted the accused for the offence punishable under Section 302 r/w 34 of IPC",
+            "char_start": null,
+            "char_end": null,
+            "chunk_id": "demo-chunk-06",
+            "section_path": "JUDGMENT > BRIEF FACTS"
+          }
+        ],
+        "extraction_confidence": null
+      }
+    ],
+    "timeline": [
+      {
+        "value": {
+          "event_date": "2016-08-12",
+          "description": "Assault on the deceased near his house."
+        },
+        "sources": [
+          {
+            "page": 2,
+            "quote": "on 12.08.2016 at about 10.30 p.m.",
+            "char_start": null,
+            "char_end": null,
+            "chunk_id": "demo-chunk-04",
+            "section_path": "JUDGMENT > BRIEF FACTS"
+          }
+        ],
+        "extraction_confidence": null
+      },
+      {
+        "value": {
+          "event_date": "2016-08-13",
+          "description": "FIR registered at Hebbal Police Station."
+        },
+        "sources": [
+          {
+            "page": 2,
+            "quote": "FIR came to be registered on 13.08.2016",
+            "char_start": null,
+            "char_end": null,
+            "chunk_id": "demo-chunk-04",
+            "section_path": "JUDGMENT > BRIEF FACTS"
+          }
+        ],
+        "extraction_confidence": null
+      },
+      {
+        "value": {
+          "event_date": "2018-01-20",
+          "description": "Trial court judgment convicting the appellant."
+        },
+        "sources": [
+          {
+            "page": 3,
+            "quote": "judgment dated 20.01.2018 passed by the learned Sessions Judge",
+            "char_start": null,
+            "char_end": null,
+            "chunk_id": "demo-chunk-06",
+            "section_path": "JUDGMENT > BRIEF FACTS"
+          }
+        ],
+        "extraction_confidence": null
+      }
+    ]
+  },
+  "statutes": {
+    "references": [
+      {
+        "raw_citation": "Section 302 IPC",
+        "parsed_act": "indian_penal_code",
+        "parsed_section": "302",
+        "sources": [
+          {
+            "page": 3,
+            "quote": "offence punishable under Section 302 r/w 34 of IPC",
+            "char_start": null,
+            "char_end": null,
+            "chunk_id": "demo-chunk-06",
+            "section_path": "JUDGMENT > BRIEF FACTS"
+          }
+        ],
+        "verification_status": "verified",
+        "kb_match": {
+          "act": "indian_penal_code",
+          "act_version": "IPC-1860",
+          "section_number": "302",
+          "section_title": "Punishment for murder",
+          "official_text": "302. Punishment for murder.\u2014Whoever commits murder shall be punished with death, or imprisonment for life, and shall also be liable to fine.",
+          "similarity_score": 0.91
+        },
+        "verification_note": null,
+        "current_equivalent": {
+          "act": "bharatiya_nyaya_sanhita",
+          "act_version": "BNS-2023",
+          "section_number": "103",
+          "section_title": "Punishment for murder",
+          "official_text": "103. Punishment for murder.\u2014(1) Whoever commits murder shall be punished with death or imprisonment for life, and shall also be liable to fine.",
+          "similarity_score": 1.0
+        }
+      },
+      {
+        "raw_citation": "Section 34 IPC",
+        "parsed_act": "indian_penal_code",
+        "parsed_section": "34",
+        "sources": [
+          {
+            "page": 3,
+            "quote": "offence punishable under Section 302 r/w 34 of IPC",
+            "char_start": null,
+            "char_end": null,
+            "chunk_id": "demo-chunk-06",
+            "section_path": "JUDGMENT > BRIEF FACTS"
+          }
+        ],
+        "verification_status": "verified",
+        "kb_match": {
+          "act": "indian_penal_code",
+          "act_version": "IPC-1860",
+          "section_number": "34",
+          "section_title": "Acts done by several persons in furtherance of common intention",
+          "official_text": "34. Acts done by several persons in furtherance of common intention.\u2014When a criminal act is done by several persons in furtherance of the common intention of all, each of such persons is liable for that act in the same manner as if it were done by him alone.",
+          "similarity_score": 0.87
+        },
+        "verification_note": null,
+        "current_equivalent": null
+      },
+      {
+        "raw_citation": "Section 313 Cr.P.C.",
+        "parsed_act": "code_of_criminal_procedure",
+        "parsed_section": "313",
+        "sources": [
+          {
+            "page": 5,
+            "quote": "the statement of the accused under Section 313 of Cr.P.C.",
+            "char_start": null,
+            "char_end": null,
+            "chunk_id": "demo-chunk-11",
+            "section_path": "JUDGMENT > ANALYSIS"
+          }
+        ],
+        "verification_status": "verified",
+        "kb_match": {
+          "act": "code_of_criminal_procedure",
+          "act_version": "CrPC-1973",
+          "section_number": "313",
+          "section_title": "Power to examine the accused",
+          "official_text": "313. Power to examine the accused.\u2014(1) In every inquiry or trial, for the purpose of enabling the accused personally to explain any circumstances appearing in the evidence against him, the Court ...",
+          "similarity_score": 0.78
+        },
+        "verification_note": null,
+        "current_equivalent": null
+      },
+      {
+        "raw_citation": "Article 21 of the Constitution",
+        "parsed_act": "constitution_of_india",
+        "parsed_section": "21",
+        "sources": [
+          {
+            "page": 6,
+            "quote": "the right guaranteed under Article 21 of the Constitution",
+            "char_start": null,
+            "char_end": null,
+            "chunk_id": "demo-chunk-13",
+            "section_path": "JUDGMENT > ANALYSIS"
+          }
+        ],
+        "verification_status": "not_found",
+        "kb_match": null,
+        "verification_note": "No KB entry for constitution_of_india section 21.",
+        "current_equivalent": null
+      }
+    ]
+  },
+  "petitioner": {
+    "party_side": "petitioner",
+    "arguments": [
+      {
+        "value": {
+          "summary": "PW-1 is an interested witness and his testimony is not corroborated by independent witnesses.",
+          "relied_on": null
+        },
+        "sources": [
+          {
+            "page": 4,
+            "quote": "PW-1 being an interested witness, his evidence requires corroboration",
+            "char_start": null,
+            "char_end": null,
+            "chunk_id": "demo-chunk-07",
+            "section_path": "JUDGMENT > SUBMISSIONS OF THE APPELLANT"
+          }
+        ],
+        "extraction_confidence": null
+      },
+      {
+        "value": {
+          "summary": "The recovery of MO-1 was not proved, as the panch witness turned hostile.",
+          "relied_on": "Section 27 of the Indian Evidence Act"
+        },
+        "sources": [
+          {
+            "page": 4,
+            "quote": "the panch witness to the recovery has turned hostile",
+            "char_start": null,
+            "char_end": null,
+            "chunk_id": "demo-chunk-07",
+            "section_path": "JUDGMENT > SUBMISSIONS OF THE APPELLANT"
+          }
+        ],
+        "extraction_confidence": null
+      }
+    ]
+  },
+  "respondent": {
+    "party_side": "respondent",
+    "arguments": [
+      {
+        "value": {
+          "summary": "The evidence of a related witness cannot be discarded only because of the relationship.",
+          "relied_on": null
+        },
+        "sources": [
+          {
+            "page": 4,
+            "quote": "evidence of a related witness cannot be discarded merely on the ground of relationship",
+            "char_start": null,
+            "char_end": null,
+            "chunk_id": "demo-chunk-08",
+            "section_path": "JUDGMENT > SUBMISSIONS OF THE RESPONDENT"
+          }
+        ],
+        "extraction_confidence": null
+      },
+      {
+        "value": {
+          "summary": "The medical evidence (Ext. P-5) is consistent with the eyewitness account.",
+          "relied_on": null
+        },
+        "sources": [
+          {
+            "page": 4,
+            "quote": "the medical evidence fully corroborates the ocular testimony",
+            "char_start": null,
+            "char_end": null,
+            "chunk_id": "demo-chunk-08",
+            "section_path": "JUDGMENT > SUBMISSIONS OF THE RESPONDENT"
+          }
+        ],
+        "extraction_confidence": null
+      }
+    ]
+  },
+  "evidence": {
+    "items": [
+      {
+        "value": {
+          "kind": "witness",
+          "description": "Brother of the deceased; eyewitness to the assault.",
+          "label": "PW-1"
+        },
+        "sources": [
+          {
+            "page": 3,
+            "quote": "PW-1, the brother of the deceased",
+            "char_start": null,
+            "char_end": null,
+            "chunk_id": "demo-chunk-09",
+            "section_path": "JUDGMENT > EVIDENCE ON RECORD"
+          }
+        ],
+        "extraction_confidence": null
+      },
+      {
+        "value": {
+          "kind": "witness",
+          "description": "Doctor who conducted the post-mortem.",
+          "label": "PW-6"
+        },
+        "sources": [
+          {
+            "page": 5,
+            "quote": "PW-6 the doctor who conducted the post-mortem examination",
+            "char_start": null,
+            "char_end": null,
+            "chunk_id": "demo-chunk-10",
+            "section_path": "JUDGMENT > EVIDENCE ON RECORD"
+          }
+        ],
+        "extraction_confidence": null
+      },
+      {
+        "value": {
+          "kind": "document",
+          "description": "Post-mortem report.",
+          "label": "Ext. P-5"
+        },
+        "sources": [
+          {
+            "page": 5,
+            "quote": "post-mortem report as per Ex.P-5",
+            "char_start": null,
+            "char_end": null,
+            "chunk_id": "demo-chunk-10",
+            "section_path": "JUDGMENT > EVIDENCE ON RECORD"
+          }
+        ],
+        "extraction_confidence": null
+      },
+      {
+        "value": {
+          "kind": "physical",
+          "description": "Knife recovered at the appellant's instance.",
+          "label": "MO-1"
+        },
+        "sources": [
+          {
+            "page": 3,
+            "quote": "MO-1 knife was recovered at the instance of the accused",
+            "char_start": null,
+            "char_end": null,
+            "chunk_id": "demo-chunk-09",
+            "section_path": "JUDGMENT > EVIDENCE ON RECORD"
+          }
+        ],
+        "extraction_confidence": null
+      },
+      {
+        "value": {
+          "kind": "digital",
+          "description": "CCTV footage from a nearby shop.",
+          "label": null
+        },
+        "sources": [
+          {
+            "page": 5,
+            "quote": "CCTV footage collected from the shop near the spot",
+            "char_start": null,
+            "char_end": null,
+            "chunk_id": "demo-chunk-10",
+            "section_path": "JUDGMENT > EVIDENCE ON RECORD"
+          }
+        ],
+        "extraction_confidence": null
+      }
+    ]
+  },
+  "confidence": {
+    "validation_pass_rate": 0.9,
+    "statute_verification_rate": 0.75,
+    "provenance_coverage": 1.0,
+    "schema_completeness": 1.0,
+    "cross_agent_consistency": 1.0,
+    "score": 0.915,
+    "decision": "auto_save"
+  },
+  "review_decision": "auto_save",
+  "processing": {
+    "document_id": "example-sample_high_confidence",
+    "schema_version": "1.0.0",
+    "llm_model": "demo-mode (synthetic result, no LLM call)",
+    "prompt_versions": {},
+    "retry_counts": {
+      "statute": 1
+    },
+    "processed_at": "2026-10-28T00:00:00",
+    "duration_seconds": null
+  }
+}
