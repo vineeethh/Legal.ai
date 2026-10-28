@@ -36,6 +36,7 @@ from pydantic import Field
 
 from schemas import (
     AgentName,
+    AgentValidationResult,
     PipelineState,
     ProcessingMetadata,
     ReviewDecision,
@@ -89,17 +90,22 @@ class GraphState(PipelineState):
     """PipelineState with merge reducers on the dict fields multiple agent
     nodes write to concurrently. Plain last-write-wins (the default for a
     field with no reducer) would drop updates when two nodes finish in the
-    same Pregel step — see schemas/state.py's reducer note."""
+    same Pregel step — see schemas/state.py's reducer note.
 
-    validations: Annotated[dict, operator.or_] = Field(default_factory=dict)
-    retry_counts: Annotated[dict, operator.or_] = Field(default_factory=dict)
+    The dicts are typed (not bare `dict`) so Pydantic turns keys back into
+    AgentName after a checkpoint round-trip: on resume from a human-review
+    interrupt, state is reloaded from the checkpointer with plain-string keys,
+    and code that calls `agent.value` (human_review_node, save_run) crashed."""
+
+    validations: Annotated[dict[AgentName, AgentValidationResult], operator.or_] = Field(default_factory=dict)
+    retry_counts: Annotated[dict[AgentName, int], operator.or_] = Field(default_factory=dict)
     # "retry" | "done" per agent, written by that agent's confidence node and
     # read by the conditional edge routing back to the agent node (a cycle)
     # or forward to assemble. Kept as an explicit signal rather than having
     # the routing function re-derive it from retry_counts — retry_counts
     # alone is ambiguous (the post-increment value looks the same whether a
     # retry was just scheduled or retries were just exhausted).
-    retry_decision: Annotated[dict, operator.or_] = Field(default_factory=dict)
+    retry_decision: Annotated[dict[AgentName, str], operator.or_] = Field(default_factory=dict)
     # Written by each agent's confidence node only once that agent is truly
     # finished (pass, or retries exhausted) — never on a "retry" outcome.
     # `fan_in_gate` is the only thing that reads this: LangGraph does NOT wait
@@ -111,7 +117,7 @@ class GraphState(PipelineState):
     # `fan_in_gate` is the explicit manual barrier that replaces the implicit
     # one the original single-node-per-agent design got "for free" only
     # because every agent finished within a single Pregel superstep.
-    agents_done: Annotated[dict, operator.or_] = Field(default_factory=dict)
+    agents_done: Annotated[dict[AgentName, bool], operator.or_] = Field(default_factory=dict)
 
 
 class RunContext:
@@ -351,12 +357,29 @@ def build_graph(ctx: RunContext) -> StateGraph:
     return graph
 
 
+def _drive(graph, payload, config: dict, on_progress: Callable[[str, dict], None] | None) -> dict:
+    """Runs the graph until it finishes or interrupts and returns the state values.
+
+    Without `on_progress` this is a plain `invoke()` (the CLI path). With it,
+    the graph is streamed node by node so a caller (the API) can report which
+    step is running; the final values are then read back from the checkpointer.
+    """
+    if on_progress is None:
+        return graph.invoke(payload, config=config)
+    for update in graph.stream(payload, config=config, stream_mode="updates"):
+        for node, node_update in update.items():
+            if not node.startswith("__"):  # skip "__interrupt__" markers
+                on_progress(node, node_update or {})
+    return graph.get_state(config).values
+
+
 def run_document(
     document_id: str,
     source_path: str,
     *,
     run_config: dict | None = None,
     on_human_review: Callable[[dict], dict] | None = None,
+    on_progress: Callable[[str, dict], None] | None = None,
 ) -> tuple[GraphState, dict | None]:
     """Parse + chunk + route a PDF, then run it through the compiled LangGraph
     supervisor. `run_config` is typically `observability.traced_run_config(...)`
@@ -367,6 +390,9 @@ def run_document(
     return the resume decision dict (`{"action": "approve"|"reject"|"edit", ...}`).
     Returns `(final_state, human_review_decision)` — the decision is None
     unless the run was actually interrupted.
+
+    `on_progress`, if given, is called as `on_progress(node_name, node_update)`
+    after every graph node finishes (used by the API to show live progress).
 
     Raises `PdfSafetyError` if the file fails the structural safety scan —
     the check runs as the graph's first node (`pdf_safety_gate`), before
@@ -383,7 +409,7 @@ def run_document(
     with PostgresSaver.from_conn_string(settings.database_url) as checkpointer:
         graph = build_graph(ctx).compile(checkpointer=checkpointer)
 
-        result = graph.invoke(initial_state, config=config)
+        result = _drive(graph, initial_state, config, on_progress)
         if result.get("pdf_safety_reasons"):
             raise PdfSafetyError(result["pdf_safety_reasons"])
 
@@ -397,6 +423,6 @@ def run_document(
                 )
             interrupt_payload = graph.get_state(config).tasks[0].interrupts[0].value
             human_review_decision = on_human_review(interrupt_payload)
-            result = graph.invoke(Command(resume=human_review_decision), config=config)
+            result = _drive(graph, Command(resume=human_review_decision), config, on_progress)
 
     return GraphState.model_validate(result), human_review_decision

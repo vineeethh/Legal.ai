@@ -8,6 +8,7 @@ in docs/architecture/data_flow.md) rather than forcing OCR on every page.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from functools import lru_cache
 from pathlib import Path
 
 from docling.datamodel.base_models import InputFormat
@@ -36,7 +37,10 @@ class ParsedDocument:
     ocr_used: bool = False
 
 
+@lru_cache(maxsize=1)
 def _build_converter() -> DocumentConverter:
+    # Cached: building the converter loads Docling's layout/OCR models, which
+    # a long-running process (the API) should do once, not once per document.
     pipeline_options = PdfPipelineOptions(
         do_table_structure=True,
         do_ocr=True,
