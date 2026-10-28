@@ -50,6 +50,9 @@ Legal.ai was recognized with the **2nd prize nationally** at Deloitte Hacksplosi
 * 🔄 **Retry & Validation Workflow** — Allows questionable outputs to be re-evaluated within the pipeline.
 * 🗃️ **Structured Outputs** — Converts complex judgments into machine-readable legal information.
 * 🔭 **LLM Observability** — Integrates Langfuse for tracing and monitoring AI workflows.
+* 🌐 **REST API (FastAPI)** — Upload a judgment, poll live progress, review paused runs and fetch results over HTTP.
+* 🖥️ **Web App (React)** — Upload, watch each pipeline step, click any extracted value to see its source quote and PDF page, and approve or edit low-confidence results.
+* 📏 **Evaluation Framework** — Scores outputs against hand-labelled judgments: accuracy, wrong-answer rate, abstention rate, P/R/F1 and confidence calibration.
 * 🐳 **Dockerized Execution** — Provides a reproducible environment for document processing and ingestion.
 
 ---
@@ -257,6 +260,10 @@ Safety Check
 | **FlagEmbedding**         | Embedding and retrieval models         |
 | **Pydantic**              | Structured data validation             |
 | **Langfuse**              | LLM observability and tracing          |
+| **FastAPI + Uvicorn**     | HTTP API, background job runner        |
+| **React + Vite + TypeScript** | Web UI                             |
+| **nginx**                 | Serves the UI, proxies `/api`          |
+| **pytest**                | API and evaluation tests               |
 | **Docker**                | Reproducible execution environment     |
 
 ---
@@ -266,6 +273,7 @@ Safety Check
 ```text
 Legal.ai/
 │
+├── api/                    # FastAPI app: jobs, worker, demo mode
 ├── data/                   # Data and supporting resources
 ├── db/                     # Database schema and utilities
 │
@@ -285,8 +293,11 @@ Legal.ai/
 │   ├── statute_verification.py
 │   └── run.py              # Pipeline entry point
 │
+├── evaluation/             # Gold labels, scorer, reports
 ├── schemas/                # Pydantic schemas
 ├── scripts/                # Utility/setup scripts
+├── tests/                  # pytest: API + evaluation
+├── ui/                     # React web app
 │
 ├── statute_kb/
 │   ├── acts.py             # Legal acts registry
@@ -461,6 +472,64 @@ The supported Docker workflow keeps document-processing dependencies and model c
 
 ---
 
+## 🌐 Web App & API
+
+Start the API and the web app:
+
+```bash
+docker compose up -d qdrant api ui
+```
+
+* Web app: `http://localhost:3000`
+* API docs (Swagger): `http://localhost:8000/docs`
+
+**No Docling, GPU or LLM key on your machine?** Set `LEGAL_AI_DEMO_MODE=1` and the API returns a
+synthetic result instead of running the pipeline, so the whole app can be demoed anywhere:
+
+```bash
+pip install fastapi "uvicorn[standard]" python-multipart pydantic python-dotenv
+cd ui && npm install && npm run build && cd ..
+LEGAL_AI_DEMO_MODE=1 uvicorn api.main:app --port 8000   # UI + API on http://localhost:8000
+```
+
+In demo mode, a file name containing `review` triggers the human-review pause and `unsafe` triggers
+a rejection.
+
+| Method | Endpoint | Purpose |
+| ------ | -------- | ------- |
+| `POST` | `/api/documents` | Upload a PDF → `202` + job id; processing starts in the background |
+| `GET` | `/api/documents` | All runs, newest first |
+| `GET` | `/api/documents/{id}` | Status and live per-agent progress |
+| `GET` | `/api/documents/{id}/review` | Flagged fields, when the run paused for review |
+| `POST` | `/api/documents/{id}/review` | `approve`, `reject` or `edit`; the paused graph resumes |
+| `GET` | `/api/documents/{id}/result` | The structured judgment |
+| `GET` | `/api/documents/{id}/pdf` | The uploaded PDF |
+| `GET` | `/api/eval/reports/latest` | The newest evaluation report |
+
+Set `API_KEY` to require an `X-API-Key` header on every endpoint except `/api/health`.
+
+---
+
+## 📏 Evaluation
+
+```bash
+python -m evaluation.run_eval            # score predictions against evaluation/gold/
+docker compose run --rm app python -m evaluation.run_eval --run   # run the pipeline first
+```
+
+See [evaluation/README.md](evaluation/README.md) for the label format and what each metric means.
+
+## 🧪 Tests
+
+```bash
+pip install -e ".[dev]"   # or just: fastapi httpx pytest python-multipart pydantic python-dotenv
+pytest
+```
+
+The tests cover the API (in demo mode) and the evaluation scorer, so they run without Docling or an LLM.
+
+---
+
 ## 🔭 Observability
 
 Legal.ai integrates **Langfuse** to provide visibility into LLM workflows.
@@ -520,14 +589,14 @@ Key areas explored:
 
 ## 🗺️ Roadmap
 
-* [ ] Web-based legal analysis interface
-* [ ] Interactive source-to-claim navigation
+* [x] Web-based legal analysis interface
+* [x] Interactive source-to-claim navigation
 * [ ] Expanded Indian statute knowledge base
 * [ ] Case-law citation graph
-* [ ] Human-in-the-loop review interface
-* [ ] Automated evaluation benchmarks
+* [x] Human-in-the-loop review interface
+* [x] Automated evaluation framework (benchmark labels still to be collected)
 * [ ] Regression test suite for legal documents
-* [ ] Production-ready API layer
+* [x] API layer (FastAPI; job queue and user accounts still to do)
 * [ ] Multilingual Indian legal document support
 * [ ] Advanced legal precedent retrieval
 
